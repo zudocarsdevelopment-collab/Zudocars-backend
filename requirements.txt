@@ -1,0 +1,5 @@
+Django==6.0.7
+djangorestframework
+requests
+beautifulsoup4
+Pillow
