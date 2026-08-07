@@ -1,7 +1,7 @@
 # yourapp/views.py (or a new yourapp/api/views.py)
 #
 # Requires: pip install djangorestframework
-# and 'rest_framework' added to INSTALLED_APPS in settings.py
+# and 'rest_framework' added to INSTALLED_APPS in settings.py.
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
