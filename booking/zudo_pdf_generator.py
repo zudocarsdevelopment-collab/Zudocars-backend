@@ -333,9 +333,6 @@ def generate_zudo_estimate_pdf(payload, output_path):
         'Fuel is charged at actuals and is non-refundable.',
         styles['footnote'],
     ))
-    if public_url:
-        story.append(Spacer(1, 2))
-        story.append(Paragraph(f'View online: {public_url}', styles['footnote']))
 
     doc.build(story)
     return output_path
