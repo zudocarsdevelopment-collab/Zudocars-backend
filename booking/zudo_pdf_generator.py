@@ -91,18 +91,18 @@ def _inr(value):
 
 
 def _fmt_dt(date_str, time_str):
-    """'2026-08-05' + '00:00' -> '05 Aug 2026, 12:00 AM'"""
+    """'2026-08-05' + '00:00' -> '05 Aug, 12:00 AM' (compact, fits the narrow panel column)"""
     if not date_str:
         return '\u2014'
     try:
         d = datetime.strptime(date_str, '%Y-%m-%d')
-        date_part = d.strftime('%d %b %Y')
+        date_part = d.strftime('%d %b')
     except ValueError:
         date_part = date_str
     if time_str:
         try:
             t = datetime.strptime(time_str, '%H:%M')
-            return f"{date_part}, {t.strftime('%I:%M %p')}"
+            return f"{date_part}, {t.strftime('%I:%M %p').lstrip('0')}"
         except ValueError:
             pass
     return date_part
@@ -124,28 +124,6 @@ def _kv_table(rows, col_widths, styles, label_style='label', value_style='value'
 
 
 def generate_zudo_estimate_pdf(payload, output_path):
-    """
-    payload: dict shaped like --
-
-    {
-        "customer_name": "Zudo cars",
-        "customer_phone": "6282744675",
-        "customer_country_code": "91",
-        "vehicle_name": "Alto K10 PETROL MT",
-        "transmission": "Manual",
-        "fuel_type": "Petrol",
-        "pickup_location_name": "Edapally Lulu",
-        "dropoff_location_name": "Edapally Lulu",
-        "date_from": "2026-08-05", "time_from": "00:00",
-        "date_to": "2026-08-07", "time_to": "00:00",
-        "extra_km_charge": 8.0,
-        "staff_name": "Ani", "staff_phone": "+91 9387005555",
-        "therentos_response": { ... the raw JSON from /admin/estimates ... }
-    }
-
-    output_path: where to write the PDF file.
-    Returns output_path.
-    """
     styles = _styles()
     tr = payload.get('therentos_response', {}) or {}
     est = tr.get('estimate', {}) or {}
@@ -161,8 +139,8 @@ def generate_zudo_estimate_pdf(payload, output_path):
     duration_days = round(booking_hours / 24, 1) if booking_hours else None
     duration_label = f"{duration_days:g} day" if duration_days else '\u2014'
 
-    rent_incl_tax = vehicle_est.get('subtotal')  # base + tax, excl. reposition/deposit
-    total_incl_gst = est.get('total_final')      # rent + reposition, incl tax, excl deposit
+    rent_incl_tax = vehicle_est.get('subtotal')
+    total_incl_gst = est.get('total_final')
     deposit = est.get('total_deposit_estimate')
     grand_total = None
     if total_incl_gst is not None and deposit is not None:
@@ -174,7 +152,6 @@ def generate_zudo_estimate_pdf(payload, output_path):
     )
     story = []
 
-    # ---- Brand header bar (full-bleed, so build it as its own table with 0 side margins) ----
     header_inner = Table(
         [[
             Paragraph('ZUDO CARS', styles['brand']),
@@ -202,7 +179,6 @@ def generate_zudo_estimate_pdf(payload, output_path):
     story.append(header_outer)
     story.append(Spacer(1, 10 * mm))
 
-    # ---- Title row: Estimate + badge   |   Estimate ID + date ----
     title_left = Table(
         [[Paragraph('Estimate', styles['h1'])],
          [Table([[Paragraph('&nbsp;&nbsp;PROVISIONAL &mdash; INVOICE&nbsp;&nbsp;', styles['badge'])]],
@@ -229,7 +205,6 @@ def generate_zudo_estimate_pdf(payload, output_path):
     story.append(title_row)
     story.append(Spacer(1, 7 * mm))
 
-    # ---- Left column content ----
     country_code = payload.get('customer_country_code', '91')
     phone = payload.get('customer_phone', '\u2014')
     left_flow = []
@@ -261,7 +236,6 @@ def generate_zudo_estimate_pdf(payload, output_path):
         left_flow.append(Paragraph(staff_name, styles['staff_name']))
         left_flow.append(Paragraph(f"Zudo Cars &middot; {payload.get('staff_phone', '')}", styles['staff_meta']))
 
-    # ---- Right column: teal panel ----
     panel_rows = [
         ('Start', _fmt_dt(payload.get('date_from'), payload.get('time_from'))),
         ('End', _fmt_dt(payload.get('date_to'), payload.get('time_to'))),
@@ -281,13 +255,13 @@ def generate_zudo_estimate_pdf(payload, output_path):
     panel_content = []
     panel_content.append(Paragraph('RENTAL TERMS', ParagraphStyle(
         'panel_h', fontName=FONT_BOLD, fontSize=8.5, textColor=NAVY, spaceAfter=3)))
-    panel_content.append(_kv_table(panel_rows, [30 * mm, 32 * mm], styles, 'panel_label', 'panel_value'))
+    panel_content.append(_kv_table(panel_rows, [24 * mm, 36 * mm], styles, 'panel_label', 'panel_value'))
     panel_content.append(Spacer(1, 4 * mm))
     panel_content.append(Paragraph('AMOUNT', ParagraphStyle(
         'panel_h2', fontName=FONT_BOLD, fontSize=8.5, textColor=NAVY, spaceAfter=3)))
-    panel_content.append(_kv_table(amount_rows, [30 * mm, 32 * mm], styles, 'panel_label', 'panel_value'))
+    panel_content.append(_kv_table(amount_rows, [24 * mm, 36 * mm], styles, 'panel_label', 'panel_value'))
 
-    panel_table = Table([[c] for c in panel_content], colWidths=[66 * mm])
+    panel_table = Table([[c] for c in panel_content], colWidths=[70 * mm])
     panel_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), TEAL_LIGHT),
         ('LEFTPADDING', (0, 0), (-1, -1), 5 * mm),
@@ -300,9 +274,9 @@ def generate_zudo_estimate_pdf(payload, output_path):
         [[Table(
             [[Paragraph('GRAND TOTAL', styles['grand_label'])],
              [Paragraph('Rent + charges + GST + deposit', styles['grand_sub'])]],
-            colWidths=[28 * mm],
+            colWidths=[30 * mm],
         ), Paragraph(_inr(grand_total), styles['grand_value'])]],
-        colWidths=[28 * mm, 38 * mm],
+        colWidths=[30 * mm, 40 * mm],
     )
     grand_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), NAVY),
@@ -317,7 +291,7 @@ def generate_zudo_estimate_pdf(payload, output_path):
 
     body_row = Table(
         [[left_flow, right_flow]],
-        colWidths=[104 * mm, 68 * mm],
+        colWidths=[100 * mm, 72 * mm],
     )
     body_row.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -333,9 +307,6 @@ def generate_zudo_estimate_pdf(payload, output_path):
         'Fuel is charged at actuals and is non-refundable.',
         styles['footnote'],
     ))
-    if public_url:
-        story.append(Spacer(1, 2))
-        story.append(Paragraph(f'View online: {public_url}', styles['footnote']))
 
     doc.build(story)
     return output_path
