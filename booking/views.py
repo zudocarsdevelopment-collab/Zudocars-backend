@@ -9,6 +9,7 @@ from rest_framework import status, serializers
 
 from .Services_available_vehicles import fetch_available_vehicles
 from .booking import create_estimate_booking
+from fleet.models import Vehicle
 
 class AvailableVehiclesRequestSerializer(serializers.Serializer):
     """Validates the query params coming from the estimate-builder UI
@@ -49,6 +50,55 @@ class AvailableVehiclesRequestSerializer(serializers.Serializer):
         return attrs
 
 
+# class AvailableVehiclesAPIView(APIView):
+#     """
+#     GET /api/vehicles/available/?date_from=2026-08-04&time_from=00:00
+#         &date_to=2026-08-04&time_to=02:30&pickup_location_id=6&dropoff_location_id=6
+
+#     Proxies the theRentOS 'New estimate' vehicle-availability lookup and
+#     returns pricing + availability per vehicle for the given window.
+#     """
+
+#     def get(self, request):
+#         return self._handle(request.query_params)
+
+#     def post(self, request):
+#         """Same lookup, but accepting a JSON body instead of query params
+#         (handy if the frontend wants to POST the whole estimate form)."""
+#         return self._handle(request.data)
+
+#     def _handle(self, raw_data):
+#         serializer = AvailableVehiclesRequestSerializer(data=raw_data)
+#         serializer.is_valid(raise_exception=True)
+#         data = serializer.validated_data
+
+#         try:
+#             result = fetch_available_vehicles(
+#                 date_from=data['date_from'].isoformat(),
+#                 time_from=data['time_from'],
+#                 date_to=data['date_to'].isoformat(),
+#                 time_to=data['time_to'],
+#                 pickup_location_id=data['pickup_location_id'],
+#                 dropoff_location_id=data['dropoff_location_id'],
+#                 vehicle_type=data['vehicle_type'],
+#                 cooldown_hours=data['cooldown_hours'],
+#                 pre_start_cooldown_hours=data['pre_start_cooldown_hours'],
+#                 include_unavailable=data['include_unavailable'],
+#                 pickup_custom_payload=data['pickup_custom_payload'],
+#                 dropoff_custom_payload=data['dropoff_custom_payload'],
+#                 csv_path=f"available_vehicles_{data['date_from']}.csv",
+#             )
+#         except RuntimeError as e:
+#             # login failed / missing creds / CSRF token not found etc.
+#             return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+#         except Exception as e:
+#             return Response(
+#                 {'error': f'Unexpected error contacting theRentOS: {e}'},
+#                 status=status.HTTP_502_BAD_GATEWAY,
+#             )
+
+#         return Response(result, status=status.HTTP_200_OK)
+# # Create your views here.
 class AvailableVehiclesAPIView(APIView):
     """
     GET /api/vehicles/available/?date_from=2026-08-04&time_from=00:00
@@ -56,6 +106,8 @@ class AvailableVehiclesAPIView(APIView):
 
     Proxies the theRentOS 'New estimate' vehicle-availability lookup and
     returns pricing + availability per vehicle for the given window.
+    Also enriches each vehicle with fuel_type/transmission from the local
+    fleet.models.Vehicle table, matched by plate number.
     """
 
     def get(self, request):
@@ -88,7 +140,6 @@ class AvailableVehiclesAPIView(APIView):
                 csv_path=f"available_vehicles_{data['date_from']}.csv",
             )
         except RuntimeError as e:
-            # login failed / missing creds / CSRF token not found etc.
             return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
         except Exception as e:
             return Response(
@@ -96,9 +147,40 @@ class AvailableVehiclesAPIView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        return Response(result, status=status.HTTP_200_OK)
-# Create your views here.
+        try:
+            result = self._enrich_with_local_specs(result)
+        except Exception as e:
+            # Don't fail the whole lookup just because local enrichment failed
+            print(f"Local vehicle spec enrichment failed: {e}")
 
+        return Response(result, status=status.HTTP_200_OK)
+
+    def _enrich_with_local_specs(self, result):
+        items = self._extract_list(result)
+
+        plate_numbers = [item.get('asset_identifier') for item in items if item.get('asset_identifier')]
+        local_vehicles = Vehicle.objects.filter(plate_number__in=plate_numbers)
+        specs_by_plate = {
+            v.plate_number: {'fuel_type': v.fuel_type, 'transmission': v.transmission}
+            for v in local_vehicles
+        }
+
+        for item in items:
+            specs = specs_by_plate.get(item.get('asset_identifier'))
+            item['fuel_type'] = specs['fuel_type'] if specs else None
+            item['transmission'] = specs['transmission'] if specs else None
+
+        return result
+
+    @staticmethod
+    def _extract_list(data):
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            for key in ('data', 'vehicles', 'cart', 'results'):
+                if isinstance(data.get(key), list):
+                    return data[key]
+        return []
 
 
 class CreateEstimateBookingAPIView(APIView):
