@@ -136,6 +136,18 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "https://www.zudocars.com"
 ]
+CSRF_TRUSTED_ORIGINS = [
+    "https://www.zudocars.com",
+    "https://zudocars.com",
+]
+
+# 6. Cross-subdomain session cookie settings
+SESSION_COOKIE_DOMAIN = ".zudocars.com"
+CSRF_COOKIE_DOMAIN = ".zudocars.com"
+SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SECURE = True
 
 # Authentication Backends
 AUTHENTICATION_BACKENDS = [
