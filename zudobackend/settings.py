@@ -16,7 +16,6 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-#test
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -43,14 +42,12 @@ INSTALLED_APPS = [
     'fleet',
     'corsheaders',
     'authenticator',
-    
-   
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',   # <- move here
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -127,15 +124,21 @@ STATIC_URL = 'static/'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
 load_dotenv()
 
 THERENTOS_EMAIL = os.getenv("THERENTOS_EMAIL")
 THERENTOS_PASSWORD = os.getenv("THERENTOS_PASSWORD")
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",   # Vite default
-    "http://localhost:3000",   # CRA default
+    "http://localhost:5173",
+    "http://localhost:3000",
     "http://127.0.0.1:5173",
     "https://www.zudocars.com"
-    
+]
+
+# Authentication Backends
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'authenticator.backends.EmailBackend',  # Custom backend inside 'authenticator' app
 ]
