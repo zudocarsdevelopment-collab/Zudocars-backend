@@ -1,51 +1,242 @@
 nohup: ignoring input
-[2026-09-04 03:15:11 +0000] [151807] [INFO] Starting gunicorn 26.0.0
-[2026-09-04 03:15:11 +0000] [151807] [INFO] Listening at: http://127.0.0.1:8000 (151807)
-[2026-09-04 03:15:11 +0000] [151807] [INFO] Using worker: sync
-[2026-09-04 03:15:11 +0000] [151808] [INFO] Booting worker with pid: 151808
-[2026-09-04 03:15:11 +0000] [151807] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
-[2026-09-04 03:15:11 +0000] [151808] [ERROR] Exception in worker process
+[2026-09-04 03:28:35 +0000] [151915] [INFO] Starting gunicorn 26.0.0
+[2026-09-04 03:28:35 +0000] [151915] [INFO] Listening at: http://127.0.0.1:8000 (151915)
+[2026-09-04 03:28:35 +0000] [151915] [INFO] Using worker: sync
+[2026-09-04 03:28:35 +0000] [151916] [INFO] Booting worker with pid: 151916
+[2026-09-04 03:28:35 +0000] [151915] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+CSCOE+/logon.html
+Not Found: /static/rest_framework/css/bootstrap.min.css
+Not Found: /static/rest_framework/css/prettify.css
+Not Found: /static/rest_framework/css/bootstrap-tweaks.css
+Not Found: /static/rest_framework/css/default.css
+Not Found: /static/rest_framework/js/jquery-3.7.1.min.js
+Not Found: /static/rest_framework/js/ajax-form.js
+Not Found: /static/rest_framework/js/csrf.js
+Not Found: /static/rest_framework/js/bootstrap.min.js
+Not Found: /static/rest_framework/js/prettify-min.js
+Not Found: /static/rest_framework/js/default.js
+Not Found: /static/rest_framework/js/load-ajax-form.js
+Not Found: /favicon.ico
+Not Found: /
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+CSCOE+/logon.html
+Not Found: /.git/config
+Not Found: /.env.bak
+Not Found: /conf/.env
+Not Found: /client/.env
+Not Found: /app/config/parameters.yml
+Not Found: /.env.uat
+Not Found: /config/secrets.yml
+Not Found: /.git/refs/heads/master
+Not Found: /.git/index
+Not Found: /env.yaml
+Not Found: /.remote-sync.json
+Not Found: /application-staging.properties
+Not Found: /project/.env
+Not Found: /wp-config.php.bkp
+Not Found: /app/config/app.php
+Not Found: /environments/.env
+Not Found: /django/.env
+Not Found: /app/.env
+Not Found: /backend/.env
+Not Found: /.env.old
+Not Found: /resources/.env
+Not Found: /.envrc
+Not Found: /p.php
+Not Found: /storage/logs/laravel.log
+Not Found: /.buildkite/env
+Not Found: /panel/.env
+Not Found: /htdocs/.env
+Not Found: /.env.secret
+Not Found: /wp-config.php~
+Not Found: /v3/.env
+Not Found: /bitbucket-pipelines.yml
+Not Found: /local.env
+Not Found: /shared/config/.env
+Not Found: /project/.env
+Not Found: /web.zip
+Not Found: /build.gradle
+Not Found: /cache/.env
+Not Found: /env.yml
+Not Found: /package.json
+Not Found: /.env.defaults
+Not Found: /protected/.env
+Not Found: /settings.php
+Not Found: /.travis.yml
+Not Found: /docker-compose.override.yml
+Not Found: /Gemfile
+Not Found: /config/initializers/secret_token.rb
+Not Found: /.env.ecosystem
+Not Found: /.env.stage
+Not Found: /.env.tmp
+Not Found: /app/etc/local.xml
+Not Found: /.env.0
+Not Found: /env.test
+Not Found: /config/environments/.env
+Not Found: /META-INF/context.xml
+Not Found: /vendor/.env
+Not Found: /config/filesystems.php
+Not Found: /wp-config.php.orig
+Not Found: /bootstrap/cache/config.php
+Unauthorized: /login/
+Unauthorized: /login/
+Unauthorized: /login/
+[2026-09-04 03:39:08 +0000] [151915] [INFO] Handling signal: hup
+[2026-09-04 03:39:08 +0000] [151915] [INFO] Hang up: Master
+[2026-09-04 03:39:08 +0000] [151929] [INFO] Booting worker with pid: 151929
+[2026-09-04 03:39:08 +0000] [151915] [WARNING] Worker (pid:151916) was sent SIGHUP!
+[2026-09-04 03:39:08 +0000] [151915] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
+Not Found: /
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /static/admin/css/base.css
+Not Found: /static/admin/js/theme.js
+Not Found: /static/admin/css/dark_mode.css
+Not Found: /static/admin/css/nav_sidebar.css
+Not Found: /static/admin/css/login.css
+Not Found: /static/admin/css/responsive.css
+Not Found: /static/admin/js/nav_sidebar.js
+Not Found: /+webvpn+/index.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /static/admin/css/dashboard.css
+Not Found: /static/admin/js/theme.js
+Not Found: /static/admin/css/base.css
+Not Found: /static/admin/css/dark_mode.css
+Not Found: /static/admin/css/nav_sidebar.css
+Not Found: /static/admin/css/responsive.css
+Not Found: /static/admin/css/responsive.css
+Not Found: /static/admin/css/nav_sidebar.css
+Not Found: /static/admin/css/dashboard.css
+Not Found: /static/admin/js/nav_sidebar.js
+Not Found: /static/admin/css/base.css
+Not Found: /static/admin/css/changelists.css
+Not Found: /static/admin/css/nav_sidebar.css
+Not Found: /static/admin/js/theme.js
+Not Found: /static/admin/css/dark_mode.css
+Not Found: /static/admin/css/responsive.css
+Not Found: /static/admin/js/vendor/jquery/jquery.js
+Not Found: /static/admin/js/jquery.init.js
+Not Found: /static/admin/js/core.js
+Not Found: /static/admin/js/admin/RelatedObjectLookups.js
+Not Found: /static/admin/js/actions.js
+Not Found: /static/admin/css/nav_sidebar.css
+Not Found: /static/admin/css/changelists.css
+Not Found: /static/admin/js/urlify.js
+Not Found: /static/admin/js/prepopulate.js
+Not Found: /static/admin/img/search.svg
+Not Found: /static/admin/js/vendor/xregexp/xregexp.js
+Not Found: /static/admin/img/icon-yes.svg
+Not Found: /static/admin/js/nav_sidebar.js
+Not Found: /static/admin/css/responsive.css
+Not Found: /static/admin/js/filters.js
+Unauthorized: /login/
+Unauthorized: /login/
+Internal Server Error: /login
 Traceback (most recent call last):
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/gunicorn/arbiter.py", line 713, in spawn_worker
-    worker.init_process()
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/gunicorn/workers/base.py", line 136, in init_process
-    self.load_wsgi()
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/gunicorn/workers/base.py", line 148, in load_wsgi
-    self.wsgi = self.app.wsgi()
-                ^^^^^^^^^^^^^^^
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/gunicorn/app/base.py", line 66, in wsgi
-    self.callable = self.load()
-                    ^^^^^^^^^^^
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/gunicorn/app/wsgiapp.py", line 57, in load
-    return self.load_wsgiapp()
-           ^^^^^^^^^^^^^^^^^^^
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/gunicorn/app/wsgiapp.py", line 47, in load_wsgiapp
-    return util.import_app(self.app_uri)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/gunicorn/util.py", line 411, in import_app
-    mod = importlib.import_module(module)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
-  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
-  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
-  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
-  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
-  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
-  File "/home/ubuntu/myproject/Zudocars-backend/zudobackend/wsgi.py", line 16, in <module>
-    application = get_wsgi_application()
-                  ^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/django/core/wsgi.py", line 12, in get_wsgi_application
-    django.setup(set_prefix=False)
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/django/__init__.py", line 24, in setup
-    apps.populate(settings.INSTALLED_APPS)
-  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/django/apps/registry.py", line 93, in populate
-    raise ImproperlyConfigured(
-django.core.exceptions.ImproperlyConfigured: Application labels aren't unique, duplicates: auth
-Application labels aren't unique, duplicates: auth
-[2026-09-04 03:15:11 +0000] [151808] [INFO] Worker exiting (pid: 151808)
-[2026-09-04 03:15:11 +0000] [151807] [ERROR] Worker (pid:151808) exited with code 3.
-[2026-09-04 03:15:11 +0000] [151807] [ERROR] Shutting down: Master
-[2026-09-04 03:15:11 +0000] [151807] [ERROR] Reason: Worker failed to boot.
+  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/django/utils/deprecation.py", line 311, in __call__
+    response = self.process_response(request, response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/django/middleware/common.py", line 109, in process_response
+    self.get_full_path_with_slash(request)
+  File "/home/ubuntu/myproject/venv/lib/python3.12/site-packages/django/middleware/common.py", line 87, in get_full_path_with_slash
+    raise RuntimeError(
+RuntimeError: You called this URL via POST, but the URL doesn't end in a slash and you have APPEND_SLASH set. Django can't redirect to the slash URL while maintaining POST data. Change your form to point to api.zudocars.com/login/ (note the trailing slash), or set APPEND_SLASH=False in your Django settings.
+Unauthorized: /login/
+Not Found: /
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+webvpn+/index.html
+Not Found: /
+Not Found: /
+Not Found: /
+Not Found: /auth
+Not Found: /+CSCOE+/logon.html
+Not Found: /
+Not Found: /+CSCOE+/logon.html
