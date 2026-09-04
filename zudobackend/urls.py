@@ -22,7 +22,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('fleet.urls')),
     path('api/', include('booking.urls')),
-    path('', include('auth.urls')),
+    path('', include('auhenticator.urls'))
+ 
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
