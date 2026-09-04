@@ -22,7 +22,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('fleet.urls')),
     path('api/', include('booking.urls')),
-    path('', include('auhenticator.urls'))
+    path('', include('authenticator.urls'))
  
 ]
 if settings.DEBUG:
