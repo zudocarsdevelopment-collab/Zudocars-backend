@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-6$ghpu2+4!87dp0=l=gxh=rzu37^z0i-9&!g2+!v+=vmhx9w*9'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -134,13 +134,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
-    "https://www.zudocars.com"
+    "https://www.zudocars.com",
+    "https://zudocars.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://www.zudocars.com",
     "https://zudocars.com",
+    "https://api.zudocars.com",
 ]
-
 # 6. Cross-subdomain session cookie settings
 SESSION_COOKIE_DOMAIN = ".zudocars.com"
 CSRF_COOKIE_DOMAIN = ".zudocars.com"
