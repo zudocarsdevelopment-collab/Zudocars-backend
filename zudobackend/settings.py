@@ -142,6 +142,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://zudocars.com",
     "https://api.zudocars.com",
 ]
+CORS_ALLOW_CREDENTIALS = True
 # 6. Cross-subdomain session cookie settings
 SESSION_COOKIE_DOMAIN = ".zudocars.com"
 CSRF_COOKIE_DOMAIN = ".zudocars.com"
