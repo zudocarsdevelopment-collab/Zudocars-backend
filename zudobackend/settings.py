@@ -136,6 +136,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "https://www.zudocars.com",
     "https://zudocars.com",
+     "https://api.zudocars.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://www.zudocars.com",
