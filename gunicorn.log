@@ -1,11 +1,6 @@
 nohup: ignoring input
-[2026-09-05 10:25:44 +0000] [164454] [INFO] Starting gunicorn 26.0.0
-[2026-09-05 10:25:44 +0000] [164454] [INFO] Listening at: http://127.0.0.1:8000 (164454)
-[2026-09-05 10:25:44 +0000] [164454] [INFO] Using worker: sync
-[2026-09-05 10:25:44 +0000] [164455] [INFO] Booting worker with pid: 164455
-[2026-09-05 10:25:44 +0000] [164454] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
-[2026-09-05 10:31:46 +0000] [164454] [INFO] Handling signal: hup
-[2026-09-05 10:31:46 +0000] [164454] [INFO] Hang up: Master
-[2026-09-05 10:31:46 +0000] [164454] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
-[2026-09-05 10:31:46 +0000] [164454] [WARNING] Worker (pid:164455) was sent SIGHUP!
-[2026-09-05 10:31:46 +0000] [164467] [INFO] Booting worker with pid: 164467
+[2026-09-06 16:52:08 +0000] [169312] [INFO] Starting gunicorn 26.0.0
+[2026-09-06 16:52:08 +0000] [169312] [INFO] Listening at: http://127.0.0.1:8000 (169312)
+[2026-09-06 16:52:08 +0000] [169312] [INFO] Using worker: sync
+[2026-09-06 16:52:08 +0000] [169313] [INFO] Booting worker with pid: 169313
+[2026-09-06 16:52:08 +0000] [169312] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
