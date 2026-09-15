@@ -1,6 +1,8 @@
 nohup: ignoring input
-[2026-09-10 10:10:20 +0000] [185650] [INFO] Starting gunicorn 26.0.0
-[2026-09-10 10:10:20 +0000] [185650] [INFO] Listening at: http://127.0.0.1:8000 (185650)
-[2026-09-10 10:10:20 +0000] [185650] [INFO] Using worker: sync
-[2026-09-10 10:10:20 +0000] [185651] [INFO] Booting worker with pid: 185651
-[2026-09-10 10:10:20 +0000] [185650] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
+[2026-09-12 06:20:16 +0000] [193238] [INFO] Starting gunicorn 26.0.0
+[2026-09-12 06:20:16 +0000] [193238] [INFO] Listening at: http://127.0.0.1:8000 (193238)
+[2026-09-12 06:20:16 +0000] [193238] [INFO] Using worker: sync
+[2026-09-12 06:20:16 +0000] [193239] [INFO] Booting worker with pid: 193239
+[2026-09-12 06:20:16 +0000] [193238] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
+[2026-09-14 03:37:58 +0000] [193239] [WARNING] Invalid request from ip=127.0.0.1: Request Line is too large (6706 > 4094)
+[2026-09-14 03:37:58 +0000] [193239] [WARNING] Invalid request from ip=127.0.0.1: Request Line is too large (6699 > 4094)
