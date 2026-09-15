@@ -24,7 +24,7 @@ class Vehicle(models.Model):
     min_hours_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     fastag_charge = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
-    photo_url = models.URLField(max_length=500, blank=True)
+    photo_url = models.URLField(max_length=500, blank=True, null=True)
     vehicle_image=models.ImageField(upload_to='vehicle_images/', null=True, blank=True)
     body_type = models.CharField(max_length=50, blank=True)
     fuel_type = models.CharField(max_length=50, blank=True)
@@ -35,6 +35,7 @@ class Vehicle(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['-updated_at']
