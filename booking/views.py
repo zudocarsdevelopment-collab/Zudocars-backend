@@ -10,6 +10,12 @@ from rest_framework import status, serializers
 from .Services_available_vehicles import fetch_available_vehicles
 from .booking import create_estimate_booking
 from fleet.models import Vehicle
+from .Services import (
+    fetch_estimates,
+    TheRentOSAuthError,
+    TheRentOSFetchError,
+)
+
 
 class AvailableVehiclesRequestSerializer(serializers.Serializer):
     """Validates the query params coming from the estimate-builder UI
@@ -214,3 +220,46 @@ class CreateEstimateBookingAPIView(APIView):
                 {'success': False, 'error': str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+
+
+class TheRentOSEstimatesAPIView(APIView):
+    """
+    GET /api/therentos/estimates/?page=1&search=Zudo&status=&estimate_priority=
+ 
+    Wraps theRentOS's server-rendered Estimates page and returns it as
+    JSON, so your React dashboard can render it with a normal table
+    component instead of an iframe.
+    """
+ 
+    # permission_classes = [IsAdminUser]  # enable once real auth is wired up
+ 
+    def get(self, request):
+        page = int(request.query_params.get("page", 1))
+        search = request.query_params.get("search", "")
+        status_filter = request.query_params.get("status", "")
+        priority = request.query_params.get("estimate_priority", "")
+        force_refresh = request.query_params.get("refresh") == "1"
+ 
+        try:
+            data = fetch_estimates(
+                page=page,
+                search=search,
+                status=status_filter,
+                priority=priority,
+                force_refresh=force_refresh,
+            )
+        except TheRentOSAuthError as exc:
+            return Response(
+                {"error": f"theRentOS authentication failed: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except TheRentOSFetchError as exc:
+            return Response(
+                {"error": f"theRentOS fetch failed: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+ 
+        return Response(data, status=status.HTTP_200_OK)
+ 
