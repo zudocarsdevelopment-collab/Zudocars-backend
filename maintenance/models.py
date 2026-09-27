@@ -1,5 +1,5 @@
 from django.db import models
-from ..fleet.models import Vehicle
+from fleet.models import Vehicle
 # Create your models here.
 
 
