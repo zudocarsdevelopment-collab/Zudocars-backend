@@ -1,10 +1,2 @@
 nohup: ignoring input
-[2026-09-15 03:30:04 +0000] [205114] [INFO] Starting gunicorn 26.0.0
-[2026-09-15 03:30:04 +0000] [205114] [INFO] Listening at: http://127.0.0.1:8000 (205114)
-[2026-09-15 03:30:04 +0000] [205114] [INFO] Using worker: sync
-[2026-09-15 03:30:04 +0000] [205115] [INFO] Booting worker with pid: 205115
-[2026-09-15 03:30:04 +0000] [205114] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
-[2026-09-15 03:32:10 +0000] [205114] [INFO] Handling signal: term
-[2026-09-15 03:32:10 +0000] [205115] [INFO] Worker exiting (pid: 205115)
-[2026-09-15 03:32:10 +0000] [205114] [INFO] Worker (pid:205115) was sent SIGTERM!
-[2026-09-15 03:32:10 +0000] [205114] [INFO] Shutting down: Master
+nohup: failed to run command 'gunicorn': No such file or directory
