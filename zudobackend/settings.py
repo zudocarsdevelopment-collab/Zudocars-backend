@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'authenticator',
     'maintenance',
+    'booking',
 ]
 
 MIDDLEWARE = [
