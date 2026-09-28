@@ -1,5 +1,5 @@
 from django.urls import path, re_path
-from .views import AvailableVehiclesAPIView,CreateEstimateBookingAPIView,TheRentOSEstimatesAPIView 
+from .views import AvailableVehiclesAPIView,CreateEstimateBookingAPIView,TheRentOSEstimatesAPIView, BookingCreateAPIView, BookingListAPIView, BookingDetailAPIView
 from .zudo_pdf_view import ZudoEstimatePDFAPIView
 from django.conf.urls.static import static
 from django.conf import settings
@@ -13,6 +13,9 @@ urlpatterns = [
         TheRentOSEstimatesAPIView.as_view(),
         name="therentos-estimates",
     ),
+    path("bookings/", BookingCreateAPIView.as_view()),            # POST
+    path("api/bookings/list/", BookingListAPIView.as_view()),         # GET
+    path("api/bookings/<str:reference>/", BookingDetailAPIView.as_view()),
 
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
