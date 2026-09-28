@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-
+from rest_framework.permissions import AllowAny
 from .models import (
     ServiceRecord,
     ServiceType,
@@ -17,6 +17,7 @@ from .serializers import (
 
 # SERVICE TYPE API
 class ServiceTypeAPIView(APIView):
+    permission_classes = [AllowAny]
 
     def get(self, request):
         types = ServiceType.objects.all()
@@ -71,7 +72,7 @@ class ServiceRecordAPIView(APIView):
 
 # SERVICE RECORD DETAIL, UPDATE, DELETE
 class ServiceRecordDetailAPIView(APIView):
-
+    permission_classes = [AllowAny]
     def get_object(self, pk):
         try:
             return ServiceRecord.objects.get(pk=pk)
@@ -156,7 +157,7 @@ class ServiceRecordDetailAPIView(APIView):
 
 # MAINTENANCE SCHEDULE LIST AND CREATE
 class MaintenanceScheduleAPIView(APIView):
-
+    permission_classes = [AllowAny]
     def get(self, request):
         schedules = MaintenanceSchedule.objects.all()
 
