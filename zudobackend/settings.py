@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'authenticator',
     'maintenance',
     
+    'booking',
 ]
 
 MIDDLEWARE = [
