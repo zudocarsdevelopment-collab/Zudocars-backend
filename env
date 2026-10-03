@@ -9,6 +9,6 @@ DB_SSLROOTCERT=/home/ubuntu/myproject/Zudocars-backend/global-bundle.pem
 
 
 
-THERENTOS_EMAIL=Ani@avs.com
-THERENTOS_PASSWORD=Ani@avs.com
+THERENTOS_EMAIL=Ann@avs.com
+THERENTOS_PASSWORD=Ann@avs.com
 
