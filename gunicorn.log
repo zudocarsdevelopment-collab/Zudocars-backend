@@ -1,20 +1,11 @@
 nohup: ignoring input
-[2026-10-03 11:12:08 +0000] [284094] [INFO] Starting gunicorn 26.2.0
-[2026-10-03 11:12:08 +0000] [284094] [INFO] Listening at: http://127.0.0.1:8000 (284094)
-[2026-10-03 11:12:08 +0000] [284094] [INFO] Using worker: sync
-[2026-10-03 11:12:08 +0000] [284095] [INFO] Booting worker with pid: 284095
-[2026-10-03 11:12:08 +0000] [284096] [INFO] Booting worker with pid: 284096
-[2026-10-03 11:12:08 +0000] [284097] [INFO] Booting worker with pid: 284097
-[2026-10-03 11:12:08 +0000] [284094] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
+[2026-10-03 11:28:17 +0000] [284736] [INFO] Starting gunicorn 26.2.0
+[2026-10-03 11:28:17 +0000] [284736] [INFO] Listening at: http://127.0.0.1:8000 (284736)
+[2026-10-03 11:28:17 +0000] [284736] [INFO] Using worker: sync
+[2026-10-03 11:28:17 +0000] [284737] [INFO] Booting worker with pid: 284737
+[2026-10-03 11:28:17 +0000] [284738] [INFO] Booting worker with pid: 284738
+[2026-10-03 11:28:17 +0000] [284739] [INFO] Booting worker with pid: 284739
+[2026-10-03 11:28:17 +0000] [284736] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
+Not Found: /
+Not Found: /
 Bad Gateway: /api/vehicles/available/
-[2026-10-03 11:14:43 +0000] [284094] [INFO] Handling signal: hup
-[2026-10-03 11:14:43 +0000] [284094] [INFO] Hang up: Master
-[2026-10-03 11:14:43 +0000] [284144] [INFO] Booting worker with pid: 284144
-[2026-10-03 11:14:43 +0000] [284094] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
-[2026-10-03 11:14:43 +0000] [284146] [INFO] Booting worker with pid: 284146
-[2026-10-03 11:14:43 +0000] [284094] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
-[2026-10-03 11:14:43 +0000] [284148] [INFO] Booting worker with pid: 284148
-[2026-10-03 11:14:43 +0000] [284094] [WARNING] Worker (pid:284095) was sent SIGHUP!
-[2026-10-03 11:14:43 +0000] [284094] [WARNING] Worker (pid:284096) was sent SIGHUP!
-[2026-10-03 11:14:43 +0000] [284094] [WARNING] Worker (pid:284097) was sent SIGHUP!
-[2026-10-03 11:14:43 +0000] [284094] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl
