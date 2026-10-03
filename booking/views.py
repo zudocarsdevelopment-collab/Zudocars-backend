@@ -6,6 +6,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, serializers
+from django.db import transaction
 from .models import Booking
 from .Services_available_vehicles import fetch_available_vehicles
 from .booking import create_estimate_booking
@@ -162,9 +163,43 @@ class CreateEstimateBookingAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Keep the remote vehicle ID intact, but validate a local vehicle snapshot.
+        local_payload = dict(request.data)
+        cart = local_payload.get('cart_vehicle')
+        if not isinstance(cart, dict):
+            vehicle = Vehicle.objects.filter(external_id=str(cart)).first()
+            snapshot = local_payload.get('vehicle_snapshot', {})
+            local_payload['cart_vehicle'] = {
+                'id': cart,
+                'asset_identifier': vehicle.plate_number if vehicle else snapshot.get('asset_identifier', ''),
+                'name': vehicle.category if vehicle else snapshot.get('name', ''),
+            }
+        serializer = BookingCreateSerializer(data=local_payload)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        plate = data['cart_vehicle']['asset_identifier']
+
         try:
-            result = create_estimate_booking(request.data)
-            return Response(result, status=status.HTTP_201_CREATED)
+            with transaction.atomic():
+                booking = Booking.objects.create(
+                    **{key: data[key] for key in (
+                        'customer_name', 'customer_phone', 'customer_email',
+                        'start_datetime', 'end_datetime', 'pickup_location_id',
+                        'dropoff_location_id', 'pickup_custom_payload',
+                        'dropoff_custom_payload', 'total_amount', 'currency', 'notes',
+                        'cart_vehicle',
+                    )},
+                    vehicle=Vehicle.objects.filter(plate_number=plate).first(),
+                    vehicle_plate_number=plate,
+                )
+                result = create_estimate_booking(request.data)
+                if not isinstance(result, dict) or result.get('success') is False:
+                    raise RuntimeError(result.get('error', 'Estimate creation failed.') if isinstance(result, dict) else 'Invalid estimate response.')
+                booking.therentos_response = result
+                booking.therentos_estimate_id = BookingCreateAPIView._extract_remote_id(result)
+                booking.therentos_synced = True
+                booking.save(update_fields=['therentos_response', 'therentos_estimate_id', 'therentos_synced', 'updated_at'])
+            return Response({**result, 'success': True, 'booking': BookingSerializer(booking).data}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response(

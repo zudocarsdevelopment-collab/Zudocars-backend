@@ -26,7 +26,7 @@ class BookingSerializer(serializers.ModelSerializer):
             "pickup_location_id", "dropoff_location_id",
             "pickup_custom_payload", "dropoff_custom_payload",
             "total_amount", "currency", "notes",
-            "therentos_estimate_id", "therentos_synced",
+            "therentos_estimate_id", "therentos_synced", "cart_vehicle",
             "created_at", "updated_at",
         ]
         read_only_fields = fields

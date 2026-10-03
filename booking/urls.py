@@ -14,6 +14,8 @@ urlpatterns = [
         name="therentos-estimates",
     ),
     path("bookings/", BookingCreateAPIView.as_view()),            # POST
+    path("bookings/list/", BookingListAPIView.as_view()),
+    path("bookings/<str:reference>/", BookingDetailAPIView.as_view()),
     path("api/bookings/list/", BookingListAPIView.as_view()),         # GET
     path("api/bookings/<str:reference>/", BookingDetailAPIView.as_view()),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
