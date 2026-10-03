@@ -61,6 +61,22 @@ def build_login_payload(soup, email, password):
 
 def validate_login_response(response):
     """Inspect authentication state, not incidental words in scripts or CSS."""
+    if 'application/json' in getattr(response, 'headers', {}).get('Content-Type', ''):
+        try:
+            result = response.json()
+        except ValueError:
+            result = {}
+        if isinstance(result, dict) and (response.status_code >= 400 or result.get('success') is False):
+            errors = result.get('errors', {})
+            messages = []
+            if isinstance(errors, dict):
+                for values in errors.values():
+                    messages.extend(values if isinstance(values, list) else [values])
+            detail = '; '.join(str(message) for message in messages) or str(result.get('message', 'Login rejected.'))
+            for secret in (settings.THERENTOS_EMAIL, settings.THERENTOS_PASSWORD):
+                if secret:
+                    detail = detail.replace(secret, '[redacted]')
+            raise RuntimeError(f'theRentOS login failed (HTTP {response.status_code}): {detail[:500]}')
     soup = BeautifulSoup(response.text, 'html.parser')
     login_path = urlparse(response.url).path.rstrip('/').lower()
     login_form = soup.select_one('form input[type="password"]')
@@ -69,6 +85,25 @@ def validate_login_response(response):
             f'theRentOS login failed (HTTP {response.status_code}). '
             'Check configured credentials and whether the login page requires additional verification.'
         )
+
+
+def login_to_therentos(session):
+    """Submit the site's form once and preserve structured login errors."""
+    if not settings.THERENTOS_EMAIL or not settings.THERENTOS_PASSWORD:
+        raise RuntimeError('THERENTOS_EMAIL and THERENTOS_PASSWORD must be configured.')
+    login_url = 'https://avs.therentos.com/login'
+    page = session.get(login_url, timeout=20)
+    page.raise_for_status()
+    payload, action = build_login_payload(
+        BeautifulSoup(page.text, 'html.parser'),
+        settings.THERENTOS_EMAIL, settings.THERENTOS_PASSWORD,
+    )
+    response = session.post(action, data=payload, timeout=20, headers={
+        'Referer': page.url,
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+    })
+    validate_login_response(response)
 
 
 def sync_vehicles_from_therentos(asset_type='car', csv_path='assets.csv'):
@@ -81,20 +116,7 @@ def sync_vehicles_from_therentos(asset_type='car', csv_path='assets.csv'):
 
     session = requests.Session()
 
-    login_page = session.get('https://avs.therentos.com/login')
-    soup = BeautifulSoup(login_page.text, 'html.parser')
-    payload, login_action = build_login_payload(
-        soup,
-        settings.THERENTOS_EMAIL,
-        settings.THERENTOS_PASSWORD,
-    )
-
-    login_resp = session.post(
-        login_action,
-        data=payload,
-        headers={'Referer': 'https://avs.therentos.com/login'},
-    )
-    validate_login_response(login_resp)
+    login_to_therentos(session)
 
     all_assets = []
     page = 1

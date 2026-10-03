@@ -5,7 +5,7 @@ import csv
 import requests
 from bs4 import BeautifulSoup
 from django.conf import settings
-from fleet.services import build_login_payload, clean_number, validate_login_response
+from fleet.services import clean_number, login_to_therentos
 
 
 def get_csrf_token(session, page_url):
@@ -57,17 +57,7 @@ def fetch_available_vehicles(
 
     # --- login (same flow as sync_vehicles_from_therentos, but using
     #     settings instead of hardcoded creds) ---
-    login_page = session.get('https://avs.therentos.com/login')
-    soup = BeautifulSoup(login_page.text, 'html.parser')
-    payload, login_action = build_login_payload(
-        soup, settings.THERENTOS_EMAIL, settings.THERENTOS_PASSWORD,
-    )
-    login_resp = session.post(
-        login_action,
-        data=payload,
-        headers={'Referer': 'https://avs.therentos.com/login'},
-    )
-    validate_login_response(login_resp)
+    login_to_therentos(session)
 
     # --- fresh CSRF token from the estimate-create page ---
     token = get_csrf_token(session, estimate_page_url)
