@@ -36,6 +36,13 @@ def build_login_payload(soup, email, password):
         input_type = input_tag.get('type', '').lower()
         value = input_tag.get('value', '')
 
+        # Match the browser login with Remember me enabled. Unrelated unchecked
+        # checkboxes must not be submitted.
+        if input_type == 'checkbox':
+            if name == 'remember' or input_tag.has_attr('checked'):
+                payload[name] = input_tag.get('value', 'on')
+            continue
+
         if input_type in ('hidden', 'submit'):
             payload[name] = value
             continue

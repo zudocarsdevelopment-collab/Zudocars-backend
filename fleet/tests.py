@@ -45,3 +45,15 @@ class TheRentOSLoginTests(TestCase):
         payload, action = build_login_payload(soup, 'test@example.com', 'test-password')
         self.assertEqual(action, 'https://avs.therentos.com/login')
         self.assertEqual(payload, {'_token': 'csrf', 'email': 'test@example.com', 'password': 'test-password'})
+
+    def test_login_payload_matches_browser_remember_field(self):
+        soup = BeautifulSoup('''<form action="/login">
+            <input type="hidden" name="_token" value="fresh-token">
+            <input type="email" name="email"><input type="password" name="password">
+            <input type="checkbox" name="remember">
+            <input type="checkbox" name="unrelated"></form>''', 'html.parser')
+        payload, _ = build_login_payload(soup, 'test@example.com', 'test-password')
+        self.assertEqual(payload, {
+            '_token': 'fresh-token', 'email': 'test@example.com',
+            'password': 'test-password', 'remember': 'on',
+        })
