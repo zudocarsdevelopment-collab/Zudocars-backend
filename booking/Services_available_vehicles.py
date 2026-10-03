@@ -5,7 +5,7 @@ import csv
 import requests
 from bs4 import BeautifulSoup
 from django.conf import settings
-from fleet.services import build_login_payload, clean_number  # use absolute app import
+from fleet.services import build_login_payload, clean_number, validate_login_response
 
 
 def get_csrf_token(session, page_url):
@@ -67,8 +67,7 @@ def fetch_available_vehicles(
         data=payload,
         headers={'Referer': 'https://avs.therentos.com/login'},
     )
-    if login_resp.status_code != 200 or 'login' in login_resp.url or 'invalid' in login_resp.text.lower():
-        raise RuntimeError('Login failed: verify your theRentOS credentials and login form changes')
+    validate_login_response(login_resp)
 
     # --- fresh CSRF token from the estimate-create page ---
     token = get_csrf_token(session, estimate_page_url)

@@ -4,7 +4,7 @@ import time
 import csv
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from django.conf import settings
 from .models import Vehicle
 
@@ -20,7 +20,8 @@ def clean_number(val):
 
 
 def build_login_payload(soup, email, password):
-    form = soup.find('form')
+    password_input = soup.find('input', attrs={'type': 'password'})
+    form = password_input.find_parent('form') if password_input else None
     if not form:
         raise RuntimeError('Unable to find login form on theRentOS login page')
 
@@ -58,6 +59,18 @@ def build_login_payload(soup, email, password):
     return payload, urljoin('https://avs.therentos.com/login', form.get('action', ''))
 
 
+def validate_login_response(response):
+    """Inspect authentication state, not incidental words in scripts or CSS."""
+    soup = BeautifulSoup(response.text, 'html.parser')
+    login_path = urlparse(response.url).path.rstrip('/').lower()
+    login_form = soup.select_one('form input[type="password"]')
+    if response.status_code != 200 or login_path == '/login' or login_form:
+        raise RuntimeError(
+            f'theRentOS login failed (HTTP {response.status_code}). '
+            'Check configured credentials and whether the login page requires additional verification.'
+        )
+
+
 def sync_vehicles_from_therentos(asset_type='car', csv_path='assets.csv'):
     """Fetch assets from theRentOS, save CSV snapshot, upsert into Vehicle model.
     Returns a summary dict."""
@@ -72,8 +85,8 @@ def sync_vehicles_from_therentos(asset_type='car', csv_path='assets.csv'):
     soup = BeautifulSoup(login_page.text, 'html.parser')
     payload, login_action = build_login_payload(
         soup,
-        "Ani@avs.com",
-        "Ani@avs.com",
+        settings.THERENTOS_EMAIL,
+        settings.THERENTOS_PASSWORD,
     )
 
     login_resp = session.post(
@@ -81,8 +94,7 @@ def sync_vehicles_from_therentos(asset_type='car', csv_path='assets.csv'):
         data=payload,
         headers={'Referer': 'https://avs.therentos.com/login'},
     )
-    if login_resp.status_code != 200 or 'login' in login_resp.url or 'invalid' in login_resp.text.lower():
-        raise RuntimeError('Login failed: verify your theRentOS credentials and login form changes')
+    validate_login_response(login_resp)
 
     all_assets = []
     page = 1

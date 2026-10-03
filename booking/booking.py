@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from django.conf import settings
-from fleet.services import build_login_payload, get_csrf_token
+from fleet.services import build_login_payload, get_csrf_token, validate_login_response
 
 def create_estimate_booking(payload_data):
     """
@@ -25,8 +25,7 @@ def create_estimate_booking(payload_data):
         data=login_payload,
         headers={'Referer': 'https://avs.therentos.com/login'}
     )
-    if login_resp.status_code != 200 or 'login' in login_resp.url or 'invalid' in login_resp.text.lower():
-        raise RuntimeError('Login failed: verify credentials or form structure.')
+    validate_login_response(login_resp)
 
     # 2. Get fresh CSRF token
     estimate_page_url = 'https://avs.therentos.com/admin/estimates/'
