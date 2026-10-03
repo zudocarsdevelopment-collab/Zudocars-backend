@@ -20,6 +20,7 @@ class TheRentOSLoginTests(TestCase):
         with self.assertRaisesRegex(RuntimeError, 'Suspicious activity detected for \\[redacted\\], please contact admin'):
             login_to_therentos(session)
         session.post.assert_called_once()
+        self.assertEqual(session.post.call_args.kwargs['headers'], {'Referer': 'https://avs.therentos.com/login'})
         self.assertEqual(session.post.call_args.kwargs['data']['_token'], 'csrf')
 
     def test_dashboard_validation_styles_do_not_fail_login(self):

@@ -88,7 +88,7 @@ def validate_login_response(response):
 
 
 def login_to_therentos(session):
-    """Submit the site's form once and preserve structured login errors."""
+    """Submit the site's regular login form once, using the original request format."""
     if not settings.THERENTOS_EMAIL or not settings.THERENTOS_PASSWORD:
         raise RuntimeError('THERENTOS_EMAIL and THERENTOS_PASSWORD must be configured.')
     login_url = 'https://avs.therentos.com/login'
@@ -100,8 +100,6 @@ def login_to_therentos(session):
     )
     response = session.post(action, data=payload, timeout=20, headers={
         'Referer': page.url,
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
     })
     validate_login_response(response)
 
