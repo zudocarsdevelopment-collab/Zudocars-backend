@@ -16,6 +16,5 @@ urlpatterns = [
     path("bookings/", BookingCreateAPIView.as_view()),            # POST
     path("api/bookings/list/", BookingListAPIView.as_view()),         # GET
     path("api/bookings/<str:reference>/", BookingDetailAPIView.as_view()),
-
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
