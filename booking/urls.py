@@ -1,22 +1,11 @@
-from django.urls import path, re_path
-from .views import AvailableVehiclesAPIView,CreateEstimateBookingAPIView,TheRentOSEstimatesAPIView, BookingCreateAPIView, BookingListAPIView, BookingDetailAPIView
+from django.urls import path
+from .views import AvailableVehiclesAPIView,CreateEstimateBookingAPIView
 from .zudo_pdf_view import ZudoEstimatePDFAPIView
 from django.conf.urls.static import static
-from django.conf import settings
-from django.views.static import serve
+
+
 urlpatterns = [
     path('vehicles/available/', AvailableVehiclesAPIView.as_view(), name='available-vehicles'),
     path('estimates/create/', CreateEstimateBookingAPIView.as_view(), name='create-estimate'),
-    path('estimates/pdf/', ZudoEstimatePDFAPIView.as_view(), name='zudo-estimate-pdf'),
-    path(
-        "estimates/",
-        TheRentOSEstimatesAPIView.as_view(),
-        name="therentos-estimates",
-    ),
-    path("bookings/", BookingCreateAPIView.as_view()),            # POST
-    path("bookings/list/", BookingListAPIView.as_view()),
-    path("bookings/<str:reference>/", BookingDetailAPIView.as_view()),
-    path("api/bookings/list/", BookingListAPIView.as_view()),         # GET
-    path("api/bookings/<str:reference>/", BookingDetailAPIView.as_view()),
-    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    path('estimates/pdf/', ZudoEstimatePDFAPIView.as_view(), name='zudo-estimate-pdf'),  # ADD THIS
 ]

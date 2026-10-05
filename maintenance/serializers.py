@@ -1,25 +1,34 @@
 from rest_framework import serializers
-from .models import (
-    ServiceRecord,
-    ServiceType,
-    MaintenanceSchedule,
-)
+
+from .models import Vehicle
 
 
-class ServiceTypeSerializer(serializers.ModelSerializer):
+class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ServiceType
-        fields = "__all__"
-
-
-class ServiceRecordSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ServiceRecord
-        fields = "__all__"
-        read_only_fields = ["created_at"]
-
-
-class MaintenanceScheduleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MaintenanceSchedule
-        fields = "__all__"
+        model = Vehicle
+        fields = [
+            'id',
+            'external_id',
+            'plate_number',
+            'year',
+            'odometer',
+            'category',
+            'sub_category',
+            'location_base',
+            'location_current',
+            'vehicle_type',
+            'booking_type',
+            'hourly_rate',
+            'min_hours_rate',
+            'fastag_charge',
+            'photo_url',
+            'vehicle_image',
+            'body_type',
+            'fuel_type',
+            'transmission',
+            'seats',
+            'date_added',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

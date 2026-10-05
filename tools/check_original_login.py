@@ -1,9 +1,10 @@
 """Run once: python manage.py shell < tools/check_original_login.py.
 
-Tests the August 5 login flow only. Does not create estimates, bookings, or PDFs.
+Tests the August 23 login flow only. Does not create estimates, bookings, or PDFs.
 """
 import ast
 import subprocess
+import shutil
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -13,7 +14,7 @@ from django.conf import settings
 
 def check_original_login():
     source = subprocess.run(
-        ['git', 'show', '86c246f:fleet/services.py'],
+        [shutil.which('git') or 'git', 'show', '9de6fae:fleet/services.py'],
         check=True, capture_output=True, text=True,
     ).stdout
     tree = ast.parse(source)
@@ -43,17 +44,42 @@ def check_original_login():
             or 'invalid' in response.text.lower()
         )
         login_form_present = bool(soup.select_one('form input[type="password"]'))
-        print('Original commit: 86c246f (2026-08-05)')
+        print('Original commit: 9de6fae (2026-08-23)')
         print('Submitted field names:', ', '.join(sorted(payload)))
         print('HTTP status:', response.status_code)
         print('Final path:', urlparse(response.url).path)
         print('Redirect statuses:', [item.status_code for item in response.history])
         print('Login form still present:', login_form_present)
         print('Original code would reject:', original_rejected)
+        # Report provider feedback without exposing credentials, tokens or cookies.
+        messages = []
+        for element in soup.select('.alert, .invalid-feedback, [role="alert"], .error-message'):
+            message = element.get_text(' ', strip=True)
+            if message and message not in messages:
+                messages.append(message)
+        if 'application/json' in response.headers.get('Content-Type', ''):
+            try:
+                result = response.json()
+                if isinstance(result, dict):
+                    messages.append(str(result.get('errors') or result.get('message') or ''))
+            except ValueError:
+                pass
+        for message in messages:
+            for secret in (email, password):
+                message = message.replace(secret, '[redacted]')
+            print('AVS feedback:', message[:500])
         if login_form_present or urlparse(response.url).path.rstrip('/') == '/login':
             print('Result: original login request also returned to login.')
         elif response.status_code == 200:
-            print('Result: original request reached a page without a login form; verify authenticated access next.')
+            protected = session.get('https://avs.therentos.com/admin/estimates/create', timeout=20)
+            protected_soup = BeautifulSoup(protected.text, 'html.parser')
+            authenticated = (
+                protected.status_code == 200
+                and urlparse(protected.url).path.rstrip('/') != '/login'
+                and not protected_soup.select_one('form input[type="password"]')
+            )
+            print('Protected estimate page accessible:', authenticated)
+            print('Result:', 'Authenticated access confirmed.' if authenticated else 'Protected page rejected the session.')
         else:
             print('Result: original request failed. HTTP status shown above.')
 

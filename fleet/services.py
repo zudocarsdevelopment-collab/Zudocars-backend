@@ -6,7 +6,6 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from django.conf import settings
-from django.core.cache import cache
 from .models import Vehicle
 
 
@@ -21,8 +20,7 @@ def clean_number(val):
 
 
 def build_login_payload(soup, email, password):
-    password_input = soup.find('input', attrs={'type': 'password'})
-    form = password_input.find_parent('form') if password_input else None
+    form = soup.find('form')
     if not form:
         raise RuntimeError('Unable to find login form on theRentOS login page')
 
@@ -36,13 +34,6 @@ def build_login_payload(soup, email, password):
             continue
         input_type = input_tag.get('type', '').lower()
         value = input_tag.get('value', '')
-
-        # Match the browser login with Remember me enabled. Unrelated unchecked
-        # checkboxes must not be submitted.
-        if input_type == 'checkbox':
-            if name == 'remember' or input_tag.has_attr('checked'):
-                payload[name] = input_tag.get('value', 'on')
-            continue
 
         if input_type in ('hidden', 'submit'):
             payload[name] = value
@@ -96,13 +87,9 @@ def validate_login_response(response):
 
 
 def login_to_therentos(session):
-    """Start a new AVS session and fetch a fresh token for every login."""
+    """Submit the August 23 login form fields using the supplied session."""
     if not settings.THERENTOS_EMAIL or not settings.THERENTOS_PASSWORD:
         raise RuntimeError('THERENTOS_EMAIL and THERENTOS_PASSWORD must be configured.')
-    cache.delete('therentos_session_cookies')
-    session.cookies.clear()
-    for header in ('Cookie', 'Authorization', 'X-CSRF-TOKEN', 'X-XSRF-TOKEN'):
-        session.headers.pop(header, None)
     login_url = 'https://avs.therentos.com/login'
     page = session.get(login_url, timeout=20)
     page.raise_for_status()
@@ -111,7 +98,7 @@ def login_to_therentos(session):
         settings.THERENTOS_EMAIL, settings.THERENTOS_PASSWORD,
     )
     response = session.post(action, data=payload, timeout=20, headers={
-        'Referer': page.url,
+        'Referer': login_url,
     })
     validate_login_response(response)
 

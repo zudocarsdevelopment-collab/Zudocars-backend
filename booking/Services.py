@@ -69,21 +69,22 @@ class Estimate:
 
 
 def _get_session() -> requests.Session:
-    """
-    Returns a newly authenticated requests.Session for every lookup.
-    """
-    cache.delete(SESSION_CACHE_KEY)
+    """Reuse valid cached AVS cookies, otherwise log in normally."""
+    cached_cookies = cache.get(SESSION_CACHE_KEY)
     session = requests.Session()
-    session.headers.update(
-        {"User-Agent": "Mozilla/5.0 (compatible; ZudocarsSync/1.0)"}
-    )
-
+    session.headers.update({"User-Agent": "Mozilla/5.0 (compatible; ZudocarsSync/1.0)"})
+    if cached_cookies:
+        session.cookies.update(cached_cookies)
+        check = session.get(ESTIMATES_URL, timeout=15, allow_redirects=True)
+        if check.status_code == 200 and "login" not in check.url:
+            return session
     _login(session)
+    cache.set(SESSION_CACHE_KEY, dict(session.cookies), SESSION_TTL_SECONDS)
     return session
 
 
 def _login(session: requests.Session) -> None:
-    """Fetch a fresh login token after discarding prior authentication."""
+    """Fetch the login form token using existing session cookies."""
     email = getattr(settings, "THERENTOS_EMAIL", None)
     password = getattr(settings, "THERENTOS_PASSWORD", None)
     if not email or not password:
@@ -92,10 +93,6 @@ def _login(session: requests.Session) -> None:
             "(load them from environment variables, never hard-code)."
         )
 
-    cache.delete(SESSION_CACHE_KEY)
-    session.cookies.clear()
-    for header in ('Cookie', 'Authorization', 'X-CSRF-TOKEN', 'X-XSRF-TOKEN'):
-        session.headers.pop(header, None)
     login_page = session.get(LOGIN_URL, timeout=15)
     if login_page.status_code != 200:
         raise TheRentOSAuthError(

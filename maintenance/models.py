@@ -1,85 +1,43 @@
+# yourapp/models.py
 from django.db import models
-from fleet.models import Vehicle
-# Create your models here.
 
 
-class ServiceType(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
+class Vehicle(models.Model):
+    external_id = models.CharField(
+        max_length=50, unique=True,
+        help_text="theRentOS asset ID, used to avoid duplicates on re-sync"
+    )
+    plate_number = models.CharField(max_length=20, db_index=True)
+    year = models.PositiveIntegerField(null=True, blank=True)
+    odometer = models.PositiveIntegerField(default=0)
+
+    category = models.CharField(max_length=100, blank=True)
+    sub_category = models.CharField(max_length=100, blank=True)
+
+    location_base = models.CharField(max_length=100, blank=True)
+    location_current = models.CharField(max_length=100, blank=True)
+
+    vehicle_type = models.CharField(max_length=50, blank=True)   # e.g. "Car"
+    booking_type = models.CharField(max_length=50, blank=True)   # e.g. "Hourly (Min)"
+
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    min_hours_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    fastag_charge = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    photo_url = models.URLField(max_length=500, blank=True)
+    vehicle_image=models.ImageField(upload_to='vehicle_images/', null=True, blank=True)
+    body_type = models.CharField(max_length=50, blank=True)
+    fuel_type = models.CharField(max_length=50, blank=True)
+    transmission = models.CharField(max_length=50, blank=True)
+    seats = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    date_added = models.CharField(max_length=50, blank=True)  # or DateField if you parse it
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
 
     def __str__(self):
-        return self.name
-
-    
-class ServiceRecord(models.Model):
-    car = models.ForeignKey(
-        Vehicle,
-        on_delete=models.CASCADE,
-        related_name="service_records"
-    )
-
-    service_type = models.ForeignKey(
-        ServiceType,
-        on_delete=models.SET_NULL,
-        null=True
-    )
-
-    service_date = models.DateField()
-    odometer_reading = models.PositiveIntegerField()
-
-    service_center = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-
-    parts_cost = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0
-    )
-    labor_cost = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0
-    )
-    total_cost = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0
-    )
-
-    invoice = models.FileField(
-        upload_to="service_invoices/", blank=True, null=True
-    )
-
-    next_service_date = models.DateField(null=True, blank=True)
-    next_service_odometer = models.PositiveIntegerField(
-        null=True, blank=True
-    )
-
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-
-class MaintenanceSchedule(models.Model):
-    car = models.ForeignKey(
-        Vehicle,
-        on_delete=models.CASCADE,
-        related_name="maintenance_schedules"
-    )
-
-    service_type = models.ForeignKey(
-        ServiceType,
-        on_delete=models.SET_NULL,
-        null=True
-    )
-
-    due_date = models.DateField(null=True, blank=True)
-    due_odometer = models.PositiveIntegerField(null=True, blank=True)
-
-    status = models.CharField(
-        max_length=20,
-        choices=[
-            ("scheduled", "Scheduled"),
-            ("due", "Due"),
-            ("overdue", "Overdue"),
-            ("completed", "Completed"),
-            ("cancelled", "Cancelled"),
-        ],
-        default="scheduled"
-    )
-
-    notes = models.TextField(blank=True)
+        return f"{self.plate_number} ({self.category})"

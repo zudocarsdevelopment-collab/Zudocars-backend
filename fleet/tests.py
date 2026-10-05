@@ -9,16 +9,16 @@ from .services import build_login_payload, validate_login_response, login_to_the
 
 class TheRentOSLoginTests(TestCase):
     @override_settings(THERENTOS_EMAIL='test@example.com', THERENTOS_PASSWORD='test-password')
-    def test_login_clears_session_and_uses_fresh_form_token(self):
+    def test_login_preserves_session_and_uses_fresh_form_token(self):
         session = requests.Session()
         session.cookies.set('old_session', 'stale')
         session.headers['X-CSRF-TOKEN'] = 'old-token'
         session.headers['Authorization'] = 'Bearer old-token'
 
         def login_page(*args, **kwargs):
-            self.assertFalse(session.cookies)
-            self.assertNotIn('X-CSRF-TOKEN', session.headers)
-            self.assertNotIn('Authorization', session.headers)
+            self.assertEqual(session.cookies.get('old_session'), 'stale')
+            self.assertEqual(session.headers['X-CSRF-TOKEN'], 'old-token')
+            self.assertEqual(session.headers['Authorization'], 'Bearer old-token')
             session.cookies.set('new_session', 'fresh')
             return SimpleNamespace(
                 text='<form action="/login"><input name="email" type="email"><input name="password" type="password"><input name="_token" type="hidden" value="new-token"></form>',
@@ -64,15 +64,14 @@ class TheRentOSLoginTests(TestCase):
             with self.subTest(url=url, code=code), self.assertRaises(RuntimeError):
                 validate_login_response(SimpleNamespace(status_code=code, url=url, text=html))
 
-    def test_selects_login_form_instead_of_first_form(self):
-        soup = BeautifulSoup('''<form action="/search"><input name="query"></form>
-            <form action="/login"><input type="hidden" name="_token" value="csrf">
+    def test_august_login_form_fields(self):
+        soup = BeautifulSoup('''<form action="/login"><input type="hidden" name="_token" value="csrf">
             <input type="email" name="email"><input type="password" name="password"></form>''', 'html.parser')
         payload, action = build_login_payload(soup, 'test@example.com', 'test-password')
         self.assertEqual(action, 'https://avs.therentos.com/login')
         self.assertEqual(payload, {'_token': 'csrf', 'email': 'test@example.com', 'password': 'test-password'})
 
-    def test_login_payload_matches_browser_remember_field(self):
+    def test_august_login_does_not_force_remember_field(self):
         soup = BeautifulSoup('''<form action="/login">
             <input type="hidden" name="_token" value="fresh-token">
             <input type="email" name="email"><input type="password" name="password">
@@ -81,5 +80,5 @@ class TheRentOSLoginTests(TestCase):
         payload, _ = build_login_payload(soup, 'test@example.com', 'test-password')
         self.assertEqual(payload, {
             '_token': 'fresh-token', 'email': 'test@example.com',
-            'password': 'test-password', 'remember': 'on',
+            'password': 'test-password',
         })
