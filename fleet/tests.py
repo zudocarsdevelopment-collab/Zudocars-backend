@@ -9,16 +9,16 @@ from .services import build_login_payload, validate_login_response, login_to_the
 
 class TheRentOSLoginTests(TestCase):
     @override_settings(THERENTOS_EMAIL='test@example.com', THERENTOS_PASSWORD='test-password')
-    def test_login_preserves_session_and_uses_fresh_form_token(self):
+    def test_login_clears_session_and_uses_fresh_form_token(self):
         session = requests.Session()
         session.cookies.set('old_session', 'stale')
         session.headers['X-CSRF-TOKEN'] = 'old-token'
         session.headers['Authorization'] = 'Bearer old-token'
 
         def login_page(*args, **kwargs):
-            self.assertEqual(session.cookies.get('old_session'), 'stale')
-            self.assertEqual(session.headers['X-CSRF-TOKEN'], 'old-token')
-            self.assertEqual(session.headers['Authorization'], 'Bearer old-token')
+            self.assertFalse(session.cookies)
+            self.assertNotIn('X-CSRF-TOKEN', session.headers)
+            self.assertNotIn('Authorization', session.headers)
             session.cookies.set('new_session', 'fresh')
             return SimpleNamespace(
                 text='<form action="/login"><input name="email" type="email"><input name="password" type="password"><input name="_token" type="hidden" value="new-token"></form>',
