@@ -93,53 +93,13 @@ def _get_session() -> requests.Session:
 
 
 def _login(session: requests.Session) -> None:
-    """
-    Logs into theRentOS. Laravel apps (this one is Laravel, per the
-    csrf-token meta tag and _token hidden fields) require you to GET the
-    login page first to pick up a CSRF cookie + token, then POST it back
-    alongside credentials.
-    """
-    email = getattr(settings, "THERENTOS_EMAIL", None)
-    password = getattr(settings, "THERENTOS_PASSWORD", None)
-    if not email or not password:
-        raise TheRentOSAuthError(
-            "Set THERENTOS_EMAIL and THERENTOS_PASSWORD in Django settings "
-            "(load them from environment variables, never hard-code)."
-        )
+    """Discard stale AVS authentication and use the shared fresh-token login."""
+    from fleet.services import login_to_therentos
 
-    login_page = session.get(LOGIN_URL, timeout=15)
-    if login_page.status_code != 200:
-        raise TheRentOSAuthError(
-            f"Could not load login page ({login_page.status_code}). "
-            "Confirm LOGIN_URL is correct."
-        )
-
-    soup = BeautifulSoup(login_page.text, "html.parser")
-    token_input = soup.find("input", {"name": "_token"})
-    if not token_input:
-        raise TheRentOSAuthError(
-            "Could not find CSRF token on login page. The login form's "
-            "field names may differ from what this scraper expects — "
-            "inspect the real <form> and update _login()."
-        )
-    csrf_token = token_input.get("value")
-
-    # TODO: confirm the real field names theRentOS's login form uses.
-    # Common Laravel defaults are 'email' and 'password' — adjust if
-    # devtools shows something else (e.g. 'username').
-    payload = {
-        "_token": csrf_token,
-        "email": email,
-        "password": password,
-    }
-
-    resp = session.post(LOGIN_URL, data=payload, timeout=15, allow_redirects=True)
-    if resp.status_code != 200 or "login" in resp.url:
-        raise TheRentOSAuthError(
-            "Login failed — check credentials, field names, and whether "
-            "theRentOS requires 2FA (which this scraper does not handle)."
-        )
-
+    try:
+        login_to_therentos(session)
+    except RuntimeError as exc:
+        raise TheRentOSAuthError(str(exc)) from exc
 
 def _clean(text: Optional[str]) -> str:
     if text is None:

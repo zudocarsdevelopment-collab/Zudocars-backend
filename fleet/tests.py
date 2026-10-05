@@ -1,12 +1,38 @@
 from django.test import TestCase
 from types import SimpleNamespace
 from unittest.mock import Mock
+import requests
 from django.test import override_settings
 from bs4 import BeautifulSoup
 from .services import build_login_payload, validate_login_response, login_to_therentos
 
 
 class TheRentOSLoginTests(TestCase):
+    @override_settings(THERENTOS_EMAIL='test@example.com', THERENTOS_PASSWORD='test-password')
+    def test_relogin_discards_old_cookies_and_uses_new_token(self):
+        session = requests.Session()
+        session.cookies.set('old_session', 'stale')
+        session.headers['X-CSRF-TOKEN'] = 'old-token'
+        session.headers['Authorization'] = 'Bearer old-token'
+
+        def login_page(*args, **kwargs):
+            self.assertFalse(session.cookies)
+            self.assertNotIn('X-CSRF-TOKEN', session.headers)
+            self.assertNotIn('Authorization', session.headers)
+            session.cookies.set('new_session', 'fresh')
+            return SimpleNamespace(
+                text='<form action="/login"><input name="email" type="email"><input name="password" type="password"><input name="_token" type="hidden" value="new-token"></form>',
+                url='https://avs.therentos.com/login', raise_for_status=lambda: None,
+            )
+
+        session.get = Mock(side_effect=login_page)
+        session.post = Mock(return_value=SimpleNamespace(
+            status_code=200, url='https://avs.therentos.com/admin', text='', headers={},
+        ))
+        login_to_therentos(session)
+        self.assertEqual(session.post.call_args.kwargs['data']['_token'], 'new-token')
+        self.assertEqual(session.cookies.get('new_session'), 'fresh')
+
     @override_settings(THERENTOS_EMAIL='test@example.com', THERENTOS_PASSWORD='test-password')
     def test_security_rejection_is_reported_without_credentials_or_retries(self):
         session = Mock()
