@@ -6,7 +6,6 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from django.conf import settings
-from django.core.cache import cache
 from .models import Vehicle
 
 
@@ -96,13 +95,9 @@ def validate_login_response(response):
 
 
 def login_to_therentos(session):
-    """Start a clean session and submit the freshly fetched login form."""
+    """Submit the site's regular login form once, using the original request format."""
     if not settings.THERENTOS_EMAIL or not settings.THERENTOS_PASSWORD:
         raise RuntimeError('THERENTOS_EMAIL and THERENTOS_PASSWORD must be configured.')
-    cache.delete('therentos_session_cookies')
-    session.cookies.clear()
-    for header in ('Authorization', 'X-CSRF-TOKEN', 'X-XSRF-TOKEN'):
-        session.headers.pop(header, None)
     login_url = 'https://avs.therentos.com/login'
     page = session.get(login_url, timeout=20)
     page.raise_for_status()
