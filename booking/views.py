@@ -37,6 +37,15 @@ class AvailableVehiclesRequestSerializer(serializers.Serializer):
 
     pickup_custom_payload = serializers.CharField(required=False, allow_blank=True, default='')
     dropoff_custom_payload = serializers.CharField(required=False, allow_blank=True, default='')
+    body_type = serializers.CharField(required=False, allow_blank=True, default='')
+    fuel_type = serializers.CharField(required=False, allow_blank=True, default='')
+    seat_type = serializers.CharField(required=False, allow_blank=True, default='')
+    transmission_type = serializers.CharField(required=False, allow_blank=True, default='')
+    availability_filter = serializers.CharField(required=False, allow_blank=True, default='')
+    search_query = serializers.CharField(required=False, allow_blank=True, default='')
+    customer_name = serializers.CharField(required=False, allow_blank=True, default='')
+    customer_country_code = serializers.CharField(required=False, allow_blank=True, default='91')
+    customer_phone = serializers.CharField(required=False, allow_blank=True, default='')
 
     def validate_time_from(self, value):
         return self._validate_hhmm(value, 'time_from')
@@ -96,6 +105,11 @@ class AvailableVehiclesAPIView(APIView):
                 pickup_custom_payload=data['pickup_custom_payload'],
                 dropoff_custom_payload=data['dropoff_custom_payload'],
                 csv_path=f"available_vehicles_{data['date_from']}.csv",
+                **{field: data[field] for field in (
+                    'body_type', 'fuel_type', 'seat_type', 'transmission_type',
+                    'availability_filter', 'search_query', 'customer_name',
+                    'customer_country_code', 'customer_phone',
+                )},
             )
         except RuntimeError as e:
             return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)

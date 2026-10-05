@@ -4,6 +4,33 @@ from rest_framework.test import APIClient
 from .models import Booking
 
 
+class AvailableVehiclesTests(TestCase):
+    @patch('booking.views.fetch_available_vehicles')
+    def test_json_payload_is_forwarded(self, remote):
+        remote.return_value = {'vehicles': [], 'total': 0}
+        payload = {
+            'date_from': '2026-10-06', 'time_from': '00:00',
+            'date_to': '2026-10-06', 'time_to': '01:00',
+            'pickup_location_id': 6, 'dropoff_location_id': 6,
+            'customer_name': 'Test Customer', 'customer_country_code': '91',
+            'customer_phone': '9000000000', 'fuel_type': 'diesel',
+        }
+        response = APIClient().post('/api/vehicles/available/', payload, format='json')
+        self.assertEqual(response.status_code, 200)
+        for key, value in payload.items():
+            self.assertEqual(remote.call_args.kwargs[key], value)
+        self.assertEqual(remote.call_args.kwargs['include_unavailable'], 1)
+        self.assertEqual(remote.call_args.kwargs['body_type'], '')
+
+    @patch('booking.views.fetch_available_vehicles')
+    def test_missing_required_fields_do_not_contact_avs(self, remote):
+        response = APIClient().post('/api/vehicles/available/', {}, format='json')
+        self.assertEqual(response.status_code, 400)
+        for key in ('date_from', 'date_to', 'pickup_location_id', 'dropoff_location_id'):
+            self.assertIn(key, response.data)
+        remote.assert_not_called()
+
+
 class EstimateBookingTests(TestCase):
     def setUp(self):
         self.client = APIClient()

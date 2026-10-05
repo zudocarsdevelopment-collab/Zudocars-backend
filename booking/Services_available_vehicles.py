@@ -37,6 +37,9 @@ def fetch_available_vehicles(
     dropoff_custom_payload='',
     csv_path='available_vehicles.csv',
     estimate_page_url='https://avs.therentos.com/admin/estimates/create',
+    body_type='', fuel_type='', seat_type='', transmission_type='',
+    availability_filter='', search_query='', customer_name='',
+    customer_country_code='91', customer_phone='',
 ):
     """
     Mirrors what the 'New estimate' screen does when you fill in
@@ -76,6 +79,15 @@ def fetch_available_vehicles(
         'pickup_custom_payload': pickup_custom_payload,
         'dropoff_custom_payload': dropoff_custom_payload,
         'include_unavailable': include_unavailable,
+        'body_type': body_type,
+        'fuel_type': fuel_type,
+        'seat_type': seat_type,
+        'transmission_type': transmission_type,
+        'availability_filter': availability_filter,
+        'search_query': search_query,
+        'customer_name': customer_name,
+        'customer_country_code': customer_country_code,
+        'customer_phone': customer_phone,
     }
 
     resp = session.post(
