@@ -1,312 +1,146 @@
-# zudo_pdf_generator.py
-"""
-Generates a Zudo Cars-branded estimate PDF from:
-  1) the booking context you already have when you call theRentOS
-     (customer phone, vehicle name, location names, dates/times) -- because
-     theRentOS's /admin/estimates response does NOT echo these back, and
-  2) the raw JSON response returned by theRentOS's estimate-creation endpoint.
-
-Visual design is intentionally different from the AVS/theRentOS PDF:
-navy/teal brand bar instead of black/yellow, single accent panel instead
-of a full yellow sidebar, rounded-style section headers.
-"""
-
-import io
-import os
+"""Black, gold and ivory booking PDFs, generated from saved booking prices."""
 from datetime import datetime
+from html import escape, unescape
 
-from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.lib.units import mm
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable,
-)
-from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
-FONT = 'Helvetica'
-FONT_BOLD = 'Helvetica-Bold'
-FONT_ITALIC = 'Helvetica-Oblique'
-
-# ---- Zudo Cars brand palette (swap these to match real brand guidelines) ----
-NAVY = colors.HexColor('#0B2545')
-TEAL = colors.HexColor('#13A89E')
-TEAL_LIGHT = colors.HexColor('#E6F7F6')
-INK = colors.HexColor('#1A1A1A')
-MUTED = colors.HexColor('#6B7280')
-WHITE = colors.white
-
-
-def _styles():
-    ss = getSampleStyleSheet()
-    styles = {
-        'brand': ParagraphStyle('brand', parent=ss['Normal'], fontName=FONT_BOLD,
-                                 fontSize=20, textColor=WHITE, leading=22),
-        'brand_sub': ParagraphStyle('brand_sub', parent=ss['Normal'], fontName=FONT,
-                                     fontSize=8.5, textColor=colors.HexColor('#CFE8E6'), leading=12),
-        'contact': ParagraphStyle('contact', parent=ss['Normal'], fontName=FONT,
-                                   fontSize=8.5, textColor=WHITE, alignment=TA_RIGHT, leading=12),
-        'h1': ParagraphStyle('h1', parent=ss['Normal'], fontName=FONT_BOLD,
-                              fontSize=17, textColor=INK),
-        'badge': ParagraphStyle('badge', parent=ss['Normal'], fontName=FONT_BOLD,
-                                 fontSize=7.5, textColor=NAVY),
-        'meta_label': ParagraphStyle('meta_label', parent=ss['Normal'], fontName=FONT,
-                                      fontSize=8, textColor=MUTED, alignment=TA_RIGHT),
-        'meta_value': ParagraphStyle('meta_value', parent=ss['Normal'], fontName=FONT_BOLD,
-                                      fontSize=11, textColor=INK, alignment=TA_RIGHT),
-        'section': ParagraphStyle('section', parent=ss['Normal'], fontName=FONT_BOLD,
-                                   fontSize=9.5, textColor=TEAL, spaceAfter=4),
-        'label': ParagraphStyle('label', parent=ss['Normal'], fontName=FONT,
-                                 fontSize=9, textColor=MUTED),
-        'value': ParagraphStyle('value', parent=ss['Normal'], fontName=FONT_BOLD,
-                                 fontSize=9.5, textColor=INK, alignment=TA_RIGHT),
-        'panel_label': ParagraphStyle('panel_label', parent=ss['Normal'], fontName=FONT,
-                                       fontSize=8.7, textColor=NAVY),
-        'panel_value': ParagraphStyle('panel_value', parent=ss['Normal'], fontName=FONT_BOLD,
-                                       fontSize=9.5, textColor=NAVY, alignment=TA_RIGHT),
-        'grand_label': ParagraphStyle('grand_label', parent=ss['Normal'], fontName=FONT,
-                                       fontSize=8.5, textColor=colors.HexColor('#CFE8E6')),
-        'grand_sub': ParagraphStyle('grand_sub', parent=ss['Normal'], fontName=FONT,
-                                     fontSize=6.8, textColor=colors.HexColor('#9FC8C5')),
-        'grand_value': ParagraphStyle('grand_value', parent=ss['Normal'], fontName=FONT_BOLD,
-                                       fontSize=14.5, textColor=WHITE, alignment=TA_RIGHT),
-        'footnote': ParagraphStyle('footnote', parent=ss['Normal'], fontName=FONT_ITALIC,
-                                    fontSize=8, textColor=MUTED),
-        'staff_name': ParagraphStyle('staff_name', parent=ss['Normal'], fontName=FONT_BOLD,
-                                      fontSize=9.5, textColor=INK),
-        'staff_meta': ParagraphStyle('staff_meta', parent=ss['Normal'], fontName=FONT,
-                                      fontSize=8.3, textColor=MUTED),
-    }
-    return styles
+INK = colors.HexColor('#171717')
+GOLD = colors.HexColor('#B9975B')
+IVORY = colors.HexColor('#F7F2E9')
+LINE = colors.HexColor('#DED5C6')
+MUTED = colors.HexColor('#726A5D')
 
 
 def _inr(value):
+    return f"Rs. {float(value or 0):,.2f}"
+
+
+def _fmt_dt(date, time):
     try:
-        value = float(value)
-    except (TypeError, ValueError):
-        return '\u2014'
-    if value == int(value):
-        return f"Rs. {int(value):,}"
-    return f"Rs. {value:,.2f}"
+        return datetime.strptime(f'{date} {time}', '%Y-%m-%d %H:%M').strftime('%d %b %Y, %I:%M %p')
+    except (ValueError, TypeError):
+        return f'{date or "-"} {time or ""}'.strip()
 
 
-def _fmt_dt(date_str, time_str):
-    """'2026-08-05' + '00:00' -> '05 Aug, 12:00 AM' (compact, fits the narrow panel column)"""
-    if not date_str:
-        return '\u2014'
-    try:
-        d = datetime.strptime(date_str, '%Y-%m-%d')
-        date_part = d.strftime('%d %b')
-    except ValueError:
-        date_part = date_str
-    if time_str:
-        try:
-            t = datetime.strptime(time_str, '%H:%M')
-            return f"{date_part}, {t.strftime('%I:%M %p').lstrip('0')}"
-        except ValueError:
-            pass
-    return date_part
-
-
-def _kv_table(rows, col_widths, styles, label_style='label', value_style='value'):
-    data = []
-    for label, value in rows:
-        data.append([Paragraph(label, styles[label_style]), Paragraph(str(value), styles[value_style])])
-    t = Table(data, colWidths=col_widths, hAlign='LEFT')
-    t.setStyle(TableStyle([
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#EDEDED')),
-    ]))
-    return t
+def _page(canvas, doc):
+    width, height = A4
+    canvas.saveState()
+    canvas.setFillColor(IVORY)
+    canvas.rect(0, 0, width, height, fill=1, stroke=0)
+    # Wide sweeping curves echo the reference without using a raster background.
+    for offset, color in [(0, GOLD), (7, INK)]:
+        p = canvas.beginPath()
+        p.moveTo(0, height)
+        p.lineTo(width, height)
+        p.lineTo(width, height - 28 + offset)
+        p.curveTo(width - 120, height - 110 + offset, 330, height - 8 + offset, 260, height - 107 + offset)
+        p.curveTo(180, height - 219 + offset, 75, height - 186 + offset, 0, height - 173 + offset)
+        p.close()
+        canvas.setFillColor(color)
+        canvas.drawPath(p, fill=1, stroke=0)
+    canvas.setFillColor(GOLD)
+    canvas.setFont('Times-Italic', 47)
+    canvas.drawString(46, height - 71, 'Z')
+    canvas.setFont('Times-Roman', 27)
+    canvas.drawString(46, height - 111, 'ZUDO CARS')
+    canvas.setFont('Helvetica', 8)
+    canvas.drawString(48, height - 128, 'YOUR JOURNEY. YOUR WAY.')
+    for offset, color in [(5, GOLD), (0, INK)]:
+        p = canvas.beginPath()
+        p.moveTo(0, 0)
+        p.lineTo(width, 0)
+        p.lineTo(width, 64 + offset)
+        p.curveTo(440, 96 + offset, 417, 23 + offset, 300, 41 + offset)
+        p.curveTo(155, 67 + offset, 99, 105 + offset, 0, 53 + offset)
+        p.close()
+        canvas.setFillColor(color)
+        canvas.drawPath(p, fill=1, stroke=0)
+    canvas.setFillColor(GOLD)
+    canvas.setFont('Helvetica-Bold', 10)
+    canvas.drawString(46, 32, 'ZUDO CARS')
+    canvas.setFillColor(IVORY)
+    canvas.setFont('Helvetica', 8)
+    canvas.drawRightString(width - 46, 32, 'Thank you for choosing Zudo Cars')
+    canvas.restoreState()
 
 
 def generate_zudo_estimate_pdf(payload, output_path):
-    styles = _styles()
-    tr = payload.get('therentos_response', {}) or {}
-    est = tr.get('estimate', {}) or {}
-    km = est.get('km', {}) or {}
-    vehicle_est = est.get('vehicle', {}) or {}
-    reposition = est.get('reposition_charges', []) or []
+    response = payload.get('booking_response') or {}
+    estimate = response.get('estimate') or {}
+    styles = {
+        'body': ParagraphStyle('body', fontName='Helvetica', fontSize=9, leading=14, textColor=INK),
+        'muted': ParagraphStyle('muted', fontName='Helvetica', fontSize=8, leading=12, textColor=MUTED),
+        'label': ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=8, leading=13, textColor=GOLD),
+        'title': ParagraphStyle('title', fontName='Helvetica-Bold', fontSize=21, leading=25, textColor=INK, alignment=2),
+        'head': ParagraphStyle('head', fontName='Helvetica-Bold', fontSize=8, leading=12, textColor=GOLD),
+        'total': ParagraphStyle('total', fontName='Helvetica-Bold', fontSize=12, leading=18, textColor=IVORY),
+        'thanks': ParagraphStyle('thanks', fontName='Times-Italic', fontSize=28, leading=34, textColor=GOLD, alignment=2),
+    }
 
-    estimate_id = tr.get('estimate_id', '\u2014')
-    status = (tr.get('status') or 'draft').upper()
-    public_url = tr.get('public_url', '')
+    def p(text, style='body'):
+        # Accept both raw input and the endpoint's escaped text, escaping once.
+        return Paragraph(escape(unescape(str(text or '-'))), styles[style])
 
-    booking_hours = est.get('total_booking_hours')
-    duration_days = round(booking_hours / 24, 1) if booking_hours else None
-    duration_label = f"{duration_days:g} day" if duration_days else '\u2014'
-
-    rent_incl_tax = vehicle_est.get('subtotal')
-    total_incl_gst = est.get('total_final')
-    deposit = est.get('total_deposit_estimate')
-    grand_total = None
-    if total_incl_gst is not None and deposit is not None:
-        grand_total = float(total_incl_gst) + float(deposit)
-
-    doc = SimpleDocTemplate(
-        output_path, pagesize=A4,
-        topMargin=0, bottomMargin=14 * mm, leftMargin=14 * mm, rightMargin=14 * mm,
-    )
-    story = []
-
-    header_inner = Table(
-        [[
-            Paragraph('ZUDO CARS', styles['brand']),
-            Paragraph(
-                f"Phone <b>+91 {payload.get('staff_phone_display', '90000 00000')}</b><br/>"
-                f"Self-drive &amp; chauffeur rentals, Kerala",
-                styles['contact'],
-            ),
-        ]],
-        colWidths=[84 * mm, 70 * mm],
-    )
-    header_inner.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (0, 0), 0),
-        ('RIGHTPADDING', (-1, 0), (-1, 0), 0),
-    ]))
-    header_outer = Table([[header_inner]], colWidths=[182 * mm])
-    header_outer.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), NAVY),
-        ('LEFTPADDING', (0, 0), (-1, -1), 14 * mm),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 14 * mm),
-        ('TOPPADDING', (0, 0), (-1, -1), 10 * mm),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10 * mm),
-    ]))
-    story.append(header_outer)
-    story.append(Spacer(1, 10 * mm))
-
-    title_left = Table(
-        [[Paragraph('Estimate', styles['h1'])],
-         [Table([[Paragraph('&nbsp;&nbsp;PROVISIONAL &mdash; INVOICE&nbsp;&nbsp;', styles['badge'])]],
-                style=TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), TEAL_LIGHT),
+    def table(rows, widths, background=None):
+        result = Table(rows, colWidths=widths, hAlign='LEFT')
+        commands = [('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
                     ('TOPPADDING', (0, 0), (-1, -1), 4),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ]))]],
-        colWidths=[100 * mm],
-    )
-    title_left.setStyle(TableStyle([('LEFTPADDING', (0, 0), (-1, -1), 0), ('TOPPADDING', (1, 0), (1, 0), 4)]))
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4)]
+        if background:
+            commands.append(('BACKGROUND', (0, 0), (-1, -1), background))
+        result.setStyle(TableStyle(commands))
+        return result
 
-    title_right = Table(
-        [[Paragraph('ESTIMATE #', styles['meta_label']), ],
-         [Paragraph(f"ZD-{estimate_id}", styles['meta_value'])],
-         [Paragraph('STATUS', styles['meta_label'])],
-         [Paragraph(status, styles['meta_value'])]],
-        colWidths=[82 * mm],
-    )
-    title_right.setStyle(TableStyle([('LEFTPADDING', (0, 0), (-1, -1), 0), ('TOPPADDING', (0, 0), (-1, -1), 1)]))
-
-    title_row = Table([[title_left, title_right]], colWidths=[100 * mm, 82 * mm])
-    title_row.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
-    story.append(title_row)
-    story.append(Spacer(1, 7 * mm))
-
-    country_code = payload.get('customer_country_code', '91')
-    phone = payload.get('customer_phone', '\u2014')
-    left_flow = []
-    left_flow.append(Paragraph('CUSTOMER', styles['section']))
-    left_flow.append(_kv_table(
-        [('Name', payload.get('customer_name', tr.get('customer_name', '\u2014'))),
-         ('Mobile', f"+{country_code} {phone}")],
-        [40 * mm, 60 * mm], styles,
-    ))
-    left_flow.append(Spacer(1, 5 * mm))
-    left_flow.append(Paragraph('VEHICLE', styles['section']))
-    left_flow.append(_kv_table(
-        [('Category', payload.get('vehicle_name', '\u2014')),
-         ('Transmission', payload.get('transmission', '\u2014')),
-         ('Fuel type', payload.get('fuel_type', '\u2014'))],
-        [40 * mm, 60 * mm], styles,
-    ))
-    left_flow.append(Spacer(1, 5 * mm))
-    left_flow.append(Paragraph('LOCATIONS', styles['section']))
-    left_flow.append(_kv_table(
-        [('Pickup', payload.get('pickup_location_name', '\u2014')),
-         ('Drop-off', payload.get('dropoff_location_name', '\u2014'))],
-        [40 * mm, 60 * mm], styles,
-    ))
-    left_flow.append(Spacer(1, 6 * mm))
-    staff_name = payload.get('staff_name')
-    if staff_name:
-        left_flow.append(Paragraph('ESTIMATE PREPARED BY', styles['section']))
-        left_flow.append(Paragraph(staff_name, styles['staff_name']))
-        left_flow.append(Paragraph(f"Zudo Cars &middot; {payload.get('staff_phone', '')}", styles['staff_meta']))
-
-    panel_rows = [
-        ('Start', _fmt_dt(payload.get('date_from'), payload.get('time_from'))),
-        ('End', _fmt_dt(payload.get('date_to'), payload.get('time_to'))),
-        ('Duration', duration_label),
-        ('Allowed KM', f"{km.get('total_km_limit', '\u2014')} km"),
+    doc = SimpleDocTemplate(output_path, pagesize=A4, leftMargin=46, rightMargin=46,
+                            topMargin=185, bottomMargin=100,
+                            title='Zudo Cars Booking Estimate', author='Zudo Cars')
+    width = A4[0] - 92
+    reference = response.get('reference', response.get('estimate_id', '-'))
+    customer = [p('PREPARED FOR', 'label'), p(payload.get('customer_name', response.get('customer_name'))),
+                p(f"+{payload.get('customer_country_code', '91')} {payload.get('customer_phone', '-')}")]
+    metadata = table([[p('BOOKING NO.', 'muted'), p(reference)],
+                      [p('ISSUED', 'muted'), p(payload.get('issued_date', datetime.now().strftime('%d %b %Y')))],
+                      [p('STATUS', 'muted'), p(str(response.get('status', 'pending')).upper())]], [76, 185])
+    story = [p('BOOKING ESTIMATE', 'title'), Spacer(1, 17),
+             table([[customer, metadata]], [width - 261, 261]), Spacer(1, 17), p('YOUR RENTAL', 'label')]
+    rental = [
+        [p('VEHICLE', 'muted'), p(payload.get('vehicle_name')), p('DURATION', 'muted'), p(f"{estimate.get('total_booking_hours', '-')} hours")],
+        [p('PICKUP', 'muted'), [p(payload.get('pickup_location_name')), p(_fmt_dt(payload.get('date_from'), payload.get('time_from')), 'muted')],
+         p('RETURN', 'muted'), [p(payload.get('dropoff_location_name')), p(_fmt_dt(payload.get('date_to'), payload.get('time_to')), 'muted')]],
     ]
-    if payload.get('extra_km_charge') is not None:
-        panel_rows.append(('Extra KM charge', f"{_inr(payload['extra_km_charge'])} / km"))
-
-    amount_rows = [('Rent (incl. tax)', _inr(rent_incl_tax))]
-    for r in reposition:
-        incl_tax = (r.get('total_estimate') or 0) + (r.get('tax_amt') or 0)
-        amount_rows.append((r.get('name', 'Charge'), _inr(incl_tax)))
-    amount_rows.append(('Total (incl. GST)', _inr(total_incl_gst)))
-    amount_rows.append(('Refundable deposit', _inr(deposit)))
-
-    panel_content = []
-    panel_content.append(Paragraph('RENTAL TERMS', ParagraphStyle(
-        'panel_h', fontName=FONT_BOLD, fontSize=8.5, textColor=NAVY, spaceAfter=3)))
-    panel_content.append(_kv_table(panel_rows, [24 * mm, 36 * mm], styles, 'panel_label', 'panel_value'))
-    panel_content.append(Spacer(1, 4 * mm))
-    panel_content.append(Paragraph('AMOUNT', ParagraphStyle(
-        'panel_h2', fontName=FONT_BOLD, fontSize=8.5, textColor=NAVY, spaceAfter=3)))
-    panel_content.append(_kv_table(amount_rows, [24 * mm, 36 * mm], styles, 'panel_label', 'panel_value'))
-
-    panel_table = Table([[c] for c in panel_content], colWidths=[70 * mm])
-    panel_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), TEAL_LIGHT),
-        ('LEFTPADDING', (0, 0), (-1, -1), 5 * mm),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 5 * mm),
-        ('TOPPADDING', (0, 0), (0, 0), 5 * mm),
-        ('BOTTOMPADDING', (-1, -1), (-1, -1), 5 * mm),
+    story.extend([table(rental, [55, width / 2 - 55, 55, width / 2 - 55]), Spacer(1, 19)])
+    charges = [('Vehicle rental', (estimate.get('vehicle') or {}).get('subtotal', 0))]
+    charges.extend((r.get('name', 'Additional charge'), float(r.get('total_estimate') or 0) + float(r.get('tax_amt') or 0))
+                   for r in estimate.get('reposition_charges', []))
+    deposit = float(estimate.get('total_deposit_estimate') or 0)
+    if deposit:
+        charges.append(('Refundable deposit', deposit))
+    rows = [[p('NO.', 'head'), p('DESCRIPTION', 'head'), p('AMOUNT', 'head')]]
+    rows.extend([p(f'{i:02d}'), p(name), p(_inr(amount))] for i, (name, amount) in enumerate(charges, 1))
+    prices = table(rows, [38, width - 156, 118])
+    prices.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), INK), ('BOX', (0, 0), (-1, -1), 0.8, GOLD),
+        ('INNERGRID', (0, 1), (-1, -1), 0.4, LINE),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12), ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
     ]))
-
-    grand_table = Table(
-        [[Table(
-            [[Paragraph('GRAND TOTAL', styles['grand_label'])],
-             [Paragraph('Rent + charges + GST + deposit', styles['grand_sub'])]],
-            colWidths=[30 * mm],
-        ), Paragraph(_inr(grand_total), styles['grand_value'])]],
-        colWidths=[30 * mm, 40 * mm],
-    )
-    grand_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), NAVY),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (0, 0), 5 * mm),
-        ('RIGHTPADDING', (-1, 0), (-1, 0), 5 * mm),
-        ('TOPPADDING', (0, 0), (-1, -1), 4 * mm),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4 * mm),
-    ]))
-
-    right_flow = [panel_table, Spacer(1, 3), grand_table]
-
-    body_row = Table(
-        [[left_flow, right_flow]],
-        colWidths=[100 * mm, 72 * mm],
-    )
-    body_row.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (1, 0), (1, 0), 6 * mm),
-    ]))
-    story.append(body_row)
-
-    story.append(Spacer(1, 8 * mm))
-    story.append(HRFlowable(width='100%', color=colors.HexColor('#EDEDED'), thickness=0.7))
-    story.append(Spacer(1, 3 * mm))
-    story.append(Paragraph(
-        'Validity: 4 hours from issue, subject to vehicle availability at time of confirmation. '
-        'Fuel is charged at actuals and is non-refundable.',
-        styles['footnote'],
-    ))
-
-    doc.build(story)
+    total = float(estimate.get('total_final') or 0) + deposit
+    totals = table([[p('RENTAL & CHARGES', 'muted'), p(_inr(estimate.get('total_final')))],
+                    [p('DEPOSIT', 'muted'), p(_inr(deposit))],
+                    [p('TOTAL', 'total'), p(_inr(total), 'total')]], [117, 116], colors.HexColor('#EEE5D7'))
+    totals.setStyle(TableStyle([('BACKGROUND', (0, -1), (-1, -1), INK),
+                                ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                                ('BOTTOMPADDING', (0, 0), (-1, -1), 8)]))
+    notes = [p('BOOKING INFORMATION', 'label'),
+             p('Keep your booking number handy when contacting our team.', 'muted'), Spacer(1, 10),
+             p('PAYMENT', 'label'), p('This estimate is not a payment receipt. Contact Zudo Cars for payment and confirmation details.', 'muted')]
+    story.extend([prices, Spacer(1, 21), table([[notes, totals]], [width - 233, 233]),
+                  Spacer(1, 15), p('Thank You', 'thanks'), p('We look forward to your journey with us.', 'muted')])
+    doc.build(story, onFirstPage=_page, onLaterPages=_page)
     return output_path

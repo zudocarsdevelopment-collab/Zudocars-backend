@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+from django.core import signing
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -23,7 +24,8 @@ class LoginAPIView(APIView):
         if user is not None:
             return Response({
                 "message": "Login successful",
-                "email": user.email
+                "email": user.email,
+                "token": signing.dumps({'id': user.pk, 'hash': user.get_session_auth_hash()}, salt='zudo-dashboard'),
             })
 
         return Response({

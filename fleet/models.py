@@ -1,8 +1,21 @@
 # yourapp/models.py
 from django.db import models
 
+class PickupHub(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    address = models.TextField(blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 class Vehicle(models.Model):
+    pickup_hub = models.ForeignKey(PickupHub, null=True, blank=True, on_delete=models.PROTECT, related_name='vehicles')
     external_id = models.CharField(
         max_length=50, unique=True,
         help_text="theRentOS asset ID, used to avoid duplicates on re-sync"

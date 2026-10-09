@@ -1,3 +1,8 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import StaffMember
+
+@admin.register(StaffMember)
+class StaffMemberAdmin(admin.ModelAdmin):
+    list_display = ['name', 'email', 'employee_id', 'department', 'status']
+    search_fields = ['name', 'email', 'employee_id']

@@ -1,216 +1,110 @@
-# yourapp/views.py (or a new yourapp/api/views.py)
-#
-# Requires: pip install djangorestframework
-# and 'rest_framework' added to INSTALLED_APPS in settings.py.
-
+from django.db import transaction, OperationalError
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, serializers
-
-from .Services_available_vehicles import fetch_available_vehicles
-from .booking import create_estimate_booking
-from fleet.models import Vehicle
-
-class AvailableVehiclesRequestSerializer(serializers.Serializer):
-    """Validates the query params coming from the estimate-builder UI
-    (dates, times, locations) before we hit theRentOS."""
-
-    date_from = serializers.DateField()
-    time_from = serializers.CharField(default='00:00')
-    date_to = serializers.DateField()
-    time_to = serializers.CharField(default='23:59')
-
-    pickup_location_id = serializers.IntegerField()
-    dropoff_location_id = serializers.IntegerField()
-
-    vehicle_type = serializers.CharField(default='car')
-    cooldown_hours = serializers.IntegerField(default=0, min_value=0)
-    pre_start_cooldown_hours = serializers.IntegerField(default=0, min_value=0)
-    include_unavailable = serializers.IntegerField(default=1)
-
-    pickup_custom_payload = serializers.CharField(required=False, allow_blank=True, default='')
-    dropoff_custom_payload = serializers.CharField(required=False, allow_blank=True, default='')
-
-    def validate_time_from(self, value):
-        return self._validate_hhmm(value, 'time_from')
-
-    def validate_time_to(self, value):
-        return self._validate_hhmm(value, 'time_to')
-
-    @staticmethod
-    def _validate_hhmm(value, field_name):
-        import re
-        if not re.match(r'^\d{2}:\d{2}$', value):
-            raise serializers.ValidationError(f'{field_name} must be in HH:MM format, e.g. "14:30"')
-        return value
-
-    def validate(self, attrs):
-        if attrs['date_to'] < attrs['date_from']:
-            raise serializers.ValidationError('date_to cannot be before date_from')
-        return attrs
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.exceptions import ValidationError
+from fleet.models import Vehicle, PickupHub
+from fleet.serializers import VehicleSerializer
+from authenticator.authentication import DashboardAuthentication
+from .models import Booking
+from .serializer import AvailabilitySerializer, BookingCreateSerializer, BookingSerializer, BookingUpdateSerializer
+from .booking import overlapping_bookings, quote, booking_result
 
 
-# class AvailableVehiclesAPIView(APIView):
-#     """
-#     GET /api/vehicles/available/?date_from=2026-08-04&time_from=00:00
-#         &date_to=2026-08-04&time_to=02:30&pickup_location_id=6&dropoff_location_id=6
-
-#     Proxies the theRentOS 'New estimate' vehicle-availability lookup and
-#     returns pricing + availability per vehicle for the given window.
-#     """
-
-#     def get(self, request):
-#         return self._handle(request.query_params)
-
-#     def post(self, request):
-#         """Same lookup, but accepting a JSON body instead of query params
-#         (handy if the frontend wants to POST the whole estimate form)."""
-#         return self._handle(request.data)
-
-#     def _handle(self, raw_data):
-#         serializer = AvailableVehiclesRequestSerializer(data=raw_data)
-#         serializer.is_valid(raise_exception=True)
-#         data = serializer.validated_data
-
-#         try:
-#             result = fetch_available_vehicles(
-#                 date_from=data['date_from'].isoformat(),
-#                 time_from=data['time_from'],
-#                 date_to=data['date_to'].isoformat(),
-#                 time_to=data['time_to'],
-#                 pickup_location_id=data['pickup_location_id'],
-#                 dropoff_location_id=data['dropoff_location_id'],
-#                 vehicle_type=data['vehicle_type'],
-#                 cooldown_hours=data['cooldown_hours'],
-#                 pre_start_cooldown_hours=data['pre_start_cooldown_hours'],
-#                 include_unavailable=data['include_unavailable'],
-#                 pickup_custom_payload=data['pickup_custom_payload'],
-#                 dropoff_custom_payload=data['dropoff_custom_payload'],
-#                 csv_path=f"available_vehicles_{data['date_from']}.csv",
-#             )
-#         except RuntimeError as e:
-#             # login failed / missing creds / CSRF token not found etc.
-#             return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
-#         except Exception as e:
-#             return Response(
-#                 {'error': f'Unexpected error contacting theRentOS: {e}'},
-#                 status=status.HTTP_502_BAD_GATEWAY,
-#             )
-
-#         return Response(result, status=status.HTTP_200_OK)
-# # Create your views here.
 class AvailableVehiclesAPIView(APIView):
-    """
-    GET /api/vehicles/available/?date_from=2026-08-04&time_from=00:00
-        &date_to=2026-08-04&time_to=02:30&pickup_location_id=6&dropoff_location_id=6
-
-    Proxies the theRentOS 'New estimate' vehicle-availability lookup and
-    returns pricing + availability per vehicle for the given window.
-    Also enriches each vehicle with fuel_type/transmission from the local
-    fleet.models.Vehicle table, matched by plate number.
-    """
+    permission_classes = [AllowAny]
 
     def get(self, request):
-        return self._handle(request.query_params)
+        return self.lookup(request.query_params, request)
 
     def post(self, request):
-        """Same lookup, but accepting a JSON body instead of query params
-        (handy if the frontend wants to POST the whole estimate form)."""
-        return self._handle(request.data)
+        return self.lookup(request.data, request)
 
-    def _handle(self, raw_data):
-        serializer = AvailableVehiclesRequestSerializer(data=raw_data)
+    def lookup(self, payload, request):
+        serializer = AvailabilitySerializer(data=payload)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-
-        try:
-            result = fetch_available_vehicles(
-                date_from=data['date_from'].isoformat(),
-                time_from=data['time_from'],
-                date_to=data['date_to'].isoformat(),
-                time_to=data['time_to'],
-                pickup_location_id=data['pickup_location_id'],
-                dropoff_location_id=data['dropoff_location_id'],
-                vehicle_type=data['vehicle_type'],
-                cooldown_hours=data['cooldown_hours'],
-                pre_start_cooldown_hours=data['pre_start_cooldown_hours'],
-                include_unavailable=data['include_unavailable'],
-                pickup_custom_payload=data['pickup_custom_payload'],
-                dropoff_custom_payload=data['dropoff_custom_payload'],
-                csv_path=f"available_vehicles_{data['date_from']}.csv",
-            )
-        except RuntimeError as e:
-            return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
-        except Exception as e:
-            return Response(
-                {'error': f'Unexpected error contacting theRentOS: {e}'},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        try:
-            result = self._enrich_with_local_specs(result)
-        except Exception as e:
-            # Don't fail the whole lookup just because local enrichment failed
-            print(f"Local vehicle spec enrichment failed: {e}")
-
-        return Response(result, status=status.HTTP_200_OK)
-
-    def _enrich_with_local_specs(self, result):
-        items = self._extract_list(result)
-
-        plate_numbers = [item.get('asset_identifier') for item in items if item.get('asset_identifier')]
-        local_vehicles = Vehicle.objects.filter(plate_number__in=plate_numbers)
-        specs_by_plate = {
-            v.plate_number: {'fuel_type': v.fuel_type, 'transmission': v.transmission}
-            for v in local_vehicles
-        }
-
-        for item in items:
-            specs = specs_by_plate.get(item.get('asset_identifier'))
-            item['fuel_type'] = specs['fuel_type'] if specs else None
-            item['transmission'] = specs['transmission'] if specs else None
-
-        return result
-
-    @staticmethod
-    def _extract_list(data):
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict):
-            for key in ('data', 'vehicles', 'cart', 'results'):
-                if isinstance(data.get(key), list):
-                    return data[key]
-        return []
+        start, end = data['start_datetime'], data['end_datetime']
+        blocked = set(Booking.objects.filter(status__in=['pending', 'confirmed'], start_datetime__lt=end, end_datetime__gt=start).values_list('vehicle_id', flat=True))
+        rows = []
+        for vehicle in Vehicle.objects.filter(is_active=True, pickup_hub_id=data['pickup_location_id'], pickup_hub__is_active=True, vehicle_type__iexact=data['vehicle_type']):
+            pricing = quote(vehicle, start, end)
+            available = vehicle.pk not in blocked and pricing is not None
+            if not available and not data['include_unavailable']:
+                continue
+            row = dict(VehicleSerializer(vehicle, context={'request': request}).data)
+            row.update(name=vehicle.category, asset_identifier=vehicle.plate_number,
+                       available_stock=int(available), total_incl_tax=str(pricing['rental']) if pricing else None,
+                       delivery_amount=str(pricing['delivery']) if pricing else None,
+                       total_amount=str(pricing['total']) if pricing else None)
+            rows.append(row)
+        return Response({'vehicles': rows, 'total': len(rows)})
 
 
 class CreateEstimateBookingAPIView(APIView):
-    """
-    API endpoint to create a vehicle booking estimate via theRentOS.
-    """
-    def post(self, request, *args, **kwargs):
-        # Mandatory payload validation
-        required_fields = [
-            'customer_name', 'customer_phone', 'date_from', 
-            'time_from', 'date_to', 'time_to', 
-            'pickup_location_id', 'dropoff_location_id', 'cart_vehicle'
-        ]
-        
-        missing_fields = [field for field in required_fields if field not in request.data]
-        if missing_fields:
-            return Response(
-                {
-                    'success': False, 
-                    'error': f"Missing required fields: {', '.join(missing_fields)}"
-                }, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    permission_classes = [AllowAny]
 
-        try:
-            result = create_estimate_booking(request.data)
-            return Response(result, status=status.HTTP_201_CREATED)
+    def handle_exception(self, exc):
+        if isinstance(exc, OperationalError) and 'locked' in str(exc).lower():
+            return Response({'error': 'Another reservation is being processed. Please retry.'}, status=409)
+        return super().handle_exception(exc)
 
-        except Exception as e:
-            return Response(
-                {'success': False, 'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    def post(self, request):
+        serializer = BookingCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        with transaction.atomic():
+            vehicle = get_object_or_404(Vehicle.objects.select_for_update(), pk=data['cart_vehicle'], is_active=True)
+            if vehicle.pickup_hub_id != data['pickup_location_id']:
+                raise ValidationError('This vehicle belongs to a different pickup hub.')
+            if not PickupHub.objects.filter(pk=data['pickup_location_id'], is_active=True).exists():
+                raise ValidationError('The pickup hub is unavailable.')
+            dropoff = get_object_or_404(PickupHub, pk=data['dropoff_location_id'], is_active=True)
+            data['pickup_custom_payload'] = vehicle.pickup_hub.name
+            data['dropoff_custom_payload'] = dropoff.name
+            start, end = data['start_datetime'], data['end_datetime']
+            if overlapping_bookings(vehicle, start, end).exists():
+                return Response({'error': 'This vehicle is already reserved for the selected dates.'}, status=409)
+            pricing = quote(vehicle, start, end)
+            if pricing is None:
+                raise ValidationError('This vehicle has no valid rental rate. Please contact our team.')
+            booking = Booking.objects.create(
+                vehicle=vehicle, vehicle_plate_number=vehicle.plate_number,
+                cart_vehicle={'id': vehicle.pk, 'name': vehicle.category, 'asset_identifier': vehicle.plate_number},
+                start_datetime=start, end_datetime=end,
+                rental_amount=pricing['rental'], delivery_amount=pricing['delivery'], total_amount=pricing['total'],
+                **{key: data[key] for key in ('customer_name', 'customer_phone', 'customer_email',
+                    'pickup_location_id', 'dropoff_location_id', 'pickup_custom_payload', 'dropoff_custom_payload', 'notes')},
             )
+        return Response(booking_result(booking), status=201)
+
+
+class BookingListAPIView(APIView):
+    authentication_classes = [DashboardAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(BookingSerializer(Booking.objects.all(), many=True).data)
+
+
+class BookingDetailAPIView(BookingListAPIView):
+    def get(self, request, reference):
+        return Response(BookingSerializer(get_object_or_404(Booking, reference=reference)).data)
+
+    def patch(self, request, reference):
+        serializer = BookingUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        with transaction.atomic():
+            initial = get_object_or_404(Booking, reference=reference)
+            Vehicle.objects.select_for_update().get(pk=initial.vehicle_id)
+            booking = Booking.objects.select_for_update().get(pk=initial.pk)
+            transitions = {'pending': {'confirmed', 'cancelled'}, 'confirmed': {'completed', 'cancelled'}, 'completed': set(), 'cancelled': set()}
+            target = data.get('status', booking.status)
+            if target != booking.status and target not in transitions[booking.status]:
+                raise ValidationError('This booking status change is not allowed.')
+            for key, value in data.items():
+                setattr(booking, key, value)
+            booking.save()
+        return Response(BookingSerializer(booking).data)
