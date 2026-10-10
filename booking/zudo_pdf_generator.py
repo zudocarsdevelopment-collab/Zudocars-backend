@@ -76,7 +76,7 @@ def generate_zudo_estimate_pdf(payload, output_path):
         'label': ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=8, leading=13, textColor=GOLD),
         'title': ParagraphStyle('title', fontName='Helvetica-Bold', fontSize=21, leading=25, textColor=INK, alignment=2),
         'head': ParagraphStyle('head', fontName='Helvetica-Bold', fontSize=8, leading=12, textColor=GOLD),
-        'total': ParagraphStyle('total', fontName='Helvetica-Bold', fontSize=12, leading=18, textColor=IVORY),
+        'total': ParagraphStyle('total', fontName='Helvetica-Bold', fontSize=11, leading=15, textColor=IVORY),
         'thanks': ParagraphStyle('thanks', fontName='Times-Italic', fontSize=28, leading=34, textColor=GOLD, alignment=2),
     }
 
@@ -119,20 +119,20 @@ def generate_zudo_estimate_pdf(payload, output_path):
                    for r in estimate.get('reposition_charges', []))
     deposit = float(estimate.get('total_deposit_estimate') or 0)
     if deposit:
-        charges.append(('Refundable deposit', deposit))
+        charges.append(('Refundable security deposit', deposit))
     rows = [[p('NO.', 'head'), p('DESCRIPTION', 'head'), p('AMOUNT', 'head')]]
     rows.extend([p(f'{i:02d}'), p(name), p(_inr(amount))] for i, (name, amount) in enumerate(charges, 1))
     prices = table(rows, [38, width - 156, 118])
     prices.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), INK), ('BOX', (0, 0), (-1, -1), 0.8, GOLD),
         ('INNERGRID', (0, 1), (-1, -1), 0.4, LINE),
-        ('LEFTPADDING', (0, 0), (-1, -1), 12), ('TOPPADDING', (0, 0), (-1, -1), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12), ('TOPPADDING', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
     ]))
     total = float(estimate.get('total_final') or 0) + deposit
     totals = table([[p('RENTAL & CHARGES', 'muted'), p(_inr(estimate.get('total_final')))],
-                    [p('DEPOSIT', 'muted'), p(_inr(deposit))],
-                    [p('TOTAL', 'total'), p(_inr(total), 'total')]], [117, 116], colors.HexColor('#EEE5D7'))
+                    [p('REFUNDABLE DEPOSIT', 'muted'), p(_inr(deposit))],
+                    [p('TOTAL DUE', 'total'), p(_inr(total), 'total')]], [117, 116], colors.HexColor('#EEE5D7'))
     totals.setStyle(TableStyle([('BACKGROUND', (0, -1), (-1, -1), INK),
                                 ('LEFTPADDING', (0, 0), (-1, -1), 12),
                                 ('TOPPADDING', (0, 0), (-1, -1), 8),
@@ -140,7 +140,7 @@ def generate_zudo_estimate_pdf(payload, output_path):
     notes = [p('BOOKING INFORMATION', 'label'),
              p('Keep your booking number handy when contacting our team.', 'muted'), Spacer(1, 10),
              p('PAYMENT', 'label'), p('This estimate is not a payment receipt. Contact Zudo Cars for payment and confirmation details.', 'muted')]
-    story.extend([prices, Spacer(1, 21), table([[notes, totals]], [width - 233, 233]),
-                  Spacer(1, 15), p('Thank You', 'thanks'), p('We look forward to your journey with us.', 'muted')])
+    story.extend([prices, Spacer(1, 15), table([[notes, totals]], [width - 233, 233]),
+                  Spacer(1, 10), p('Thank You', 'thanks'), p('We look forward to your journey with us.', 'muted')])
     doc.build(story, onFirstPage=_page, onLaterPages=_page)
     return output_path

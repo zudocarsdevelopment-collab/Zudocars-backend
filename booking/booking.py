@@ -34,6 +34,6 @@ def booking_result(booking):
             'total_booking_hours': (booking.end_datetime - booking.start_datetime).total_seconds() / 3600,
             'vehicle': {'subtotal': float(booking.rental_amount)},
             'reposition_charges': [{'name': 'Delivery and return', 'total_estimate': float(booking.delivery_amount), 'tax_amt': 0}],
-            'total_final': float(booking.total_amount), 'total_deposit_estimate': 0,
+            'total_final': float(booking.total_amount), 'total_deposit_estimate': 5000,
         },
     }

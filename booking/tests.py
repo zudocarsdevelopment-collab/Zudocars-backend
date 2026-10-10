@@ -170,6 +170,10 @@ class LocalBookingTests(TestCase):
             text = '\n'.join(page.extract_text() for page in PdfReader(pdf).pages)
             self.assertIn(reference, text)
             self.assertIn('1,600', text)
+            self.assertIn('Refundable security deposit', text)
+            self.assertIn('5,000.00', text)
+            self.assertIn('6,600.00', text)
+            self.assertEqual(Booking.objects.get(reference=reference).total_amount, Decimal('1600.00'))
 
     def test_generated_pdf_url_serves_pdf_without_nginx_media_access(self):
         from urllib.parse import urlsplit
