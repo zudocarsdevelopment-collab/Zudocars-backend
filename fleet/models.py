@@ -1,5 +1,7 @@
 # yourapp/models.py
 from django.db import models
+from django.core.validators import MinValueValidator
+from decimal import Decimal
 
 class PickupHub(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -33,6 +35,11 @@ class Vehicle(models.Model):
     vehicle_type = models.CharField(max_length=50, blank=True)   # e.g. "Car"
     booking_type = models.CharField(max_length=50, blank=True)   # e.g. "Hourly (Min)"
 
+    daily_price = models.DecimalField(
+        'Daily price', max_digits=10, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        help_text='Rental price per 24 hours. Each started rental day is charged in full.',
+    )
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     min_hours_rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     fastag_charge = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

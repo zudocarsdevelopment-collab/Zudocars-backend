@@ -10,9 +10,16 @@ def overlapping_bookings(vehicle, start, end):
 
 def quote(vehicle, start, end):
     hours = (Decimal(str((end - start).total_seconds())) / Decimal('3600')).to_integral_value(rounding=ROUND_CEILING)
-    if vehicle.hourly_rate is None or vehicle.hourly_rate <= 0:
-        return None
-    rental = max(hours * vehicle.hourly_rate, vehicle.min_hours_rate or Decimal('0')).quantize(Decimal('.01'))
+    if vehicle.daily_price is not None:
+        if vehicle.daily_price <= 0:
+            return None
+        days = (hours / Decimal('24')).to_integral_value(rounding=ROUND_CEILING)
+        rental = (days * vehicle.daily_price).quantize(Decimal('.01'))
+    else:
+        # Preserve existing quotes until a daily price is entered.
+        if vehicle.hourly_rate is None or vehicle.hourly_rate <= 0:
+            return None
+        rental = max(hours * vehicle.hourly_rate, vehicle.min_hours_rate or Decimal('0')).quantize(Decimal('.01'))
     delivery = Decimal(str(getattr(settings, 'BOOKING_DELIVERY_AMOUNT', '1200.00')))
     return {'hours': int(hours), 'rental': rental, 'delivery': delivery, 'total': rental + delivery}
 

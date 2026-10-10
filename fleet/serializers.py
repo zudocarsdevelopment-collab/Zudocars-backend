@@ -16,7 +16,7 @@ class VehicleSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'external_id', 'plate_number', 'year', 'odometer',
             'category', 'sub_category', 'location_base', 'location_current',
-            'vehicle_type', 'booking_type', 'hourly_rate', 'min_hours_rate',
+            'vehicle_type', 'booking_type', 'daily_price', 'hourly_rate', 'min_hours_rate',
             'fastag_charge', 'photo_url', 'vehicle_image', 'body_type',
             'fuel_type', 'transmission', 'seats', 'is_active', 'date_added',
             'created_at', 'updated_at',
