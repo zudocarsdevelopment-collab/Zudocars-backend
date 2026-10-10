@@ -4,8 +4,9 @@ from .models import Booking
 
 
 def overlapping_bookings(vehicle, start, end):
-    return Booking.objects.filter(vehicle=vehicle, status__in=['pending', 'confirmed'],
-                                  start_datetime__lt=end, end_datetime__gt=start)
+    # A scheduled return time is an estimate. Release the vehicle only after
+    # the operator records its return or cancels the reservation.
+    return Booking.objects.filter(vehicle=vehicle, status__in=['pending', 'confirmed'])
 
 
 def quote(vehicle, start, end):

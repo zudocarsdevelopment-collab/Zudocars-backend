@@ -12,6 +12,7 @@ from .serializer import AvailabilitySerializer, BookingCreateSerializer, Booking
 from .booking import overlapping_bookings, quote, booking_result
 from django.utils import timezone
 from maintenance.intervals import sync_vehicle_maintenance
+from django.db.models import Max
 
 
 class AvailableVehiclesAPIView(APIView):
@@ -28,7 +29,8 @@ class AvailableVehiclesAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         start, end = data['start_datetime'], data['end_datetime']
-        blocked = set(Booking.objects.filter(status__in=['pending', 'confirmed'], start_datetime__lt=end, end_datetime__gt=start).values_list('vehicle_id', flat=True))
+        blocked = dict(Booking.objects.filter(status__in=['pending', 'confirmed']).values('vehicle_id').annotate(
+            expected_return=Max('end_datetime')).values_list('vehicle_id', 'expected_return'))
         rows = []
         for vehicle in Vehicle.objects.filter(is_active=True, pickup_hub_id=data['pickup_location_id'], pickup_hub__is_active=True, vehicle_type__iexact=data['vehicle_type']):
             pricing = quote(vehicle, start, end)
@@ -40,6 +42,8 @@ class AvailableVehiclesAPIView(APIView):
                        available_stock=int(available), total_incl_tax=str(pricing['rental']) if pricing else None,
                        delivery_amount=str(pricing['delivery']) if pricing else None,
                        total_amount=str(pricing['total']) if pricing else None)
+            row.update(expected_return_at=blocked.get(vehicle.pk),
+                       unavailable_reason='awaiting_return' if vehicle.pk in blocked else 'unpriced' if pricing is None else None)
             rows.append(row)
         return Response({'vehicles': rows, 'total': len(rows)})
 
@@ -67,7 +71,9 @@ class CreateEstimateBookingAPIView(APIView):
             data['dropoff_custom_payload'] = dropoff.name
             start, end = data['start_datetime'], data['end_datetime']
             if overlapping_bookings(vehicle, start, end).exists():
-                return Response({'error': 'This vehicle is already reserved for the selected dates.'}, status=409)
+                expected = overlapping_bookings(vehicle, start, end).aggregate(value=Max('end_datetime'))['value']
+                return Response({'error': 'This vehicle is currently reserved. Booking will reopen after its return is confirmed. Please choose another vehicle.',
+                                 'expected_return_at': expected}, status=409)
             pricing = quote(vehicle, start, end)
             if pricing is None:
                 raise ValidationError('This vehicle has no valid rental rate. Please contact our team.')

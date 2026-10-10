@@ -83,11 +83,27 @@ class LocalBookingTests(TestCase):
             self.assertIn('daily_price', serializer.errors)
 
     def test_adjacent_windows_are_allowed(self):
-        self.create_booking()
+        reference = self.create_booking()
         self.payload['time_from'] = '13:00'
         self.payload['time_to'] = '14:00'
+        self.assertEqual(self.client.post('/api/bookings/', self.payload, format='json').status_code, 409)
+        self.sign_in()
+        self.client.patch(f'/api/bookings/{reference}/', {'status': 'confirmed'}, format='json')
+        self.client.patch(f'/api/bookings/{reference}/', {'status': 'completed', 'return_odometer': 100}, format='json')
         self.create_booking()
         self.assertEqual(Booking.objects.count(), 2)
+
+    def test_reserved_vehicle_shows_expected_return_and_blocks_later_dates(self):
+        reference = self.create_booking()
+        self.payload['time_from'] = '14:00'
+        self.payload['time_to'] = '15:00'
+        response = self.client.post('/api/vehicles/available/', {**self.payload, 'include_unavailable': True}, format='json')
+        self.assertEqual(response.status_code, 200)
+        row = response.data['vehicles'][0]
+        self.assertEqual(row['available_stock'], 0)
+        self.assertEqual(row['unavailable_reason'], 'awaiting_return')
+        self.assertEqual(row['expected_return_at'], Booking.objects.get(reference=reference).end_datetime)
+        self.assertEqual(self.client.post('/api/bookings/', self.payload, format='json').status_code, 409)
 
     def test_management_requires_authentication(self):
         reference = self.create_booking()
