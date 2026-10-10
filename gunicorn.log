@@ -1,13 +1,13 @@
 nohup: ignoring input
-[2026-10-05 16:50:34 +0000] [331069] [INFO] Starting gunicorn 26.2.0
-[2026-10-05 16:50:34 +0000] [331069] [ERROR] Connection in use: ('127.0.0.1', 8000)
-[2026-10-05 16:50:34 +0000] [331069] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
-[2026-10-05 16:50:35 +0000] [331069] [ERROR] Connection in use: ('127.0.0.1', 8000)
-[2026-10-05 16:50:35 +0000] [331069] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
-[2026-10-05 16:50:36 +0000] [331069] [ERROR] Connection in use: ('127.0.0.1', 8000)
-[2026-10-05 16:50:36 +0000] [331069] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
-[2026-10-05 16:50:37 +0000] [331069] [ERROR] Connection in use: ('127.0.0.1', 8000)
-[2026-10-05 16:50:37 +0000] [331069] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
-[2026-10-05 16:50:38 +0000] [331069] [ERROR] Connection in use: ('127.0.0.1', 8000)
-[2026-10-05 16:50:38 +0000] [331069] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
-[2026-10-05 16:50:39 +0000] [331069] [ERROR] Can't connect to ('127.0.0.1', 8000)
+[2026-10-09 17:17:45 +0000] [423352] [INFO] Starting gunicorn 26.2.0
+[2026-10-09 17:17:45 +0000] [423352] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2026-10-09 17:17:45 +0000] [423352] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2026-10-09 17:17:46 +0000] [423352] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2026-10-09 17:17:46 +0000] [423352] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2026-10-09 17:17:47 +0000] [423352] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2026-10-09 17:17:47 +0000] [423352] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2026-10-09 17:17:48 +0000] [423352] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2026-10-09 17:17:48 +0000] [423352] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2026-10-09 17:17:49 +0000] [423352] [ERROR] Connection in use: ('127.0.0.1', 8000)
+[2026-10-09 17:17:49 +0000] [423352] [ERROR] connection to ('127.0.0.1', 8000) failed: [Errno 98] Address already in use
+[2026-10-09 17:17:50 +0000] [423352] [ERROR] Can't connect to ('127.0.0.1', 8000)
