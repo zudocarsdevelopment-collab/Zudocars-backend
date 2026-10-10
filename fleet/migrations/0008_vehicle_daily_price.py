@@ -5,10 +5,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    # Keep the deployed migration identity compatible with server-created
-    # merges and recognize databases that already added daily_price.
-    replaces = [('fleet', '0008_vehicle_daily_price')]
-    dependencies = [('fleet', '0008_connect_existing_vehicle_hubs')]
+    dependencies = [('fleet', '0007_pickuphub_vehicle_pickup_hub')]
 
     operations = [
         migrations.AddField(
