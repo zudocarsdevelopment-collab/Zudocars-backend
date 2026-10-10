@@ -4,6 +4,13 @@ Availability, reservation creation, dashboard management and PDFs use the local 
 
 ## Deployment
 
+Estimate PDFs are served through `/api/estimates/pdf/<filename>/`. The generation
+endpoint returns this URL, so nginx does not need direct access to the media
+directory to serve estimates. Proxy `/api/` to Django as usual. Existing files
+can be opened using the same filename under this endpoint after deploying.
+Older `/media/estimates/` links still require the nginx media alias and filesystem
+permissions to be configured correctly.
+
 1. Deploy backend changes and run `python manage.py migrate` from the backend project.
 2. Deploy the UI build.
 3. Sign out and sign in to the dashboard to obtain the new 12-hour management token.

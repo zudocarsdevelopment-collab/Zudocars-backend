@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    dependencies = [('fleet', '0007_pickuphub_vehicle_pickup_hub')]
+    dependencies = [('fleet', '0008_connect_existing_vehicle_hubs')]
 
     operations = [
         migrations.AddField(

@@ -1,9 +1,13 @@
 import os
 import uuid
+import re
+from pathlib import Path
 from html import escape
 from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse, Http404
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
@@ -39,4 +43,22 @@ class ZudoEstimatePDFAPIView(APIView):
         os.makedirs(output_dir, exist_ok=True)
         generate_zudo_estimate_pdf(payload, os.path.join(output_dir, filename))
         return Response({'success': True, 'reference': booking.reference,
-            'pdf_url': request.build_absolute_uri(f"{settings.MEDIA_URL.rstrip('/')}/estimates/{filename}")}, status=201)
+            'pdf_url': request.build_absolute_uri(reverse('estimate-pdf-download', kwargs={'filename': filename}))}, status=201)
+
+
+class ZudoEstimatePDFDownloadAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, filename):
+        # Match only generated filenames; never accept arbitrary media paths.
+        if not re.fullmatch(r'zudo-booking-ZUDO-[A-F0-9]{12}-[a-f0-9]{8}\.pdf', filename):
+            raise Http404('Estimate PDF not found.')
+        path = Path(settings.MEDIA_ROOT) / 'estimates' / filename
+        try:
+            handle = path.open('rb')
+        except FileNotFoundError:
+            raise Http404('Estimate PDF not found.')
+        response = FileResponse(handle, content_type='application/pdf', filename=filename)
+        response['X-Content-Type-Options'] = 'nosniff'
+        response['Cache-Control'] = 'private, no-store'
+        return response

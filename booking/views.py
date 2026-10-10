@@ -10,6 +10,8 @@ from authenticator.authentication import DashboardAuthentication
 from .models import Booking
 from .serializer import AvailabilitySerializer, BookingCreateSerializer, BookingSerializer, BookingUpdateSerializer
 from .booking import overlapping_bookings, quote, booking_result
+from django.utils import timezone
+from maintenance.intervals import sync_vehicle_maintenance
 
 
 class AvailableVehiclesAPIView(APIView):
@@ -98,12 +100,27 @@ class BookingDetailAPIView(BookingListAPIView):
         data = serializer.validated_data
         with transaction.atomic():
             initial = get_object_or_404(Booking, reference=reference)
-            Vehicle.objects.select_for_update().get(pk=initial.vehicle_id)
+            vehicle = Vehicle.objects.select_for_update().get(pk=initial.vehicle_id)
             booking = Booking.objects.select_for_update().get(pk=initial.pk)
             transitions = {'pending': {'confirmed', 'cancelled'}, 'confirmed': {'completed', 'cancelled'}, 'completed': set(), 'cancelled': set()}
             target = data.get('status', booking.status)
             if target != booking.status and target not in transitions[booking.status]:
                 raise ValidationError('This booking status change is not allowed.')
+            if 'return_odometer' in data or 'return_notes' in data:
+                if target != 'completed' or booking.status != 'confirmed':
+                    raise ValidationError('Return details can only be saved when returning a confirmed booking.')
+            if target == 'confirmed' and booking.status == 'pending':
+                booking.pickup_odometer = vehicle.odometer
+            if target == 'completed' and booking.status == 'confirmed':
+                reading = data.get('return_odometer')
+                if reading is None:
+                    raise ValidationError({'return_odometer': 'Enter the odometer reading when the vehicle is returned.'})
+                if reading < max(vehicle.odometer, booking.pickup_odometer or 0):
+                    raise ValidationError({'return_odometer': 'Return mileage cannot be lower than the current vehicle mileage.'})
+                vehicle.odometer = reading
+                vehicle.save(update_fields=['odometer', 'updated_at'])
+                booking.returned_at = timezone.now()
+                sync_vehicle_maintenance(vehicle)
             for key, value in data.items():
                 setattr(booking, key, value)
             booking.save()

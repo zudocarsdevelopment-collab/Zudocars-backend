@@ -44,6 +44,8 @@ class BookingCreateSerializer(AvailabilitySerializer):
 
 
 class BookingUpdateSerializer(serializers.Serializer):
+    return_odometer = serializers.IntegerField(min_value=0, required=False)
+    return_notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
     status = serializers.ChoiceField(choices=Booking.STATUS, required=False)
     assigned_email = serializers.EmailField(allow_blank=True, required=False)
     notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)

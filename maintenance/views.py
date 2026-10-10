@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from authenticator.authentication import DashboardAuthentication
 from .models import ServiceType, ServiceRecord, MaintenanceSchedule
 from .serializers import ServiceTypeSerializer, ServiceRecordSerializer, MaintenanceScheduleSerializer
+from .intervals import refresh_mileage_schedules
 
 
 class OperatorAPI:
@@ -13,6 +14,10 @@ class OperatorAPI:
 class ServiceTypeAPIView(OperatorAPI, generics.ListCreateAPIView):
     queryset = ServiceType.objects.all()
     serializer_class = ServiceTypeSerializer
+
+    def get_queryset(self):
+        refresh_mileage_schedules()
+        return ServiceType.objects.all()
 
 
 class ServiceTypeDetailAPIView(OperatorAPI, generics.RetrieveUpdateDestroyAPIView):
@@ -39,6 +44,7 @@ class MaintenanceScheduleAPIView(OperatorAPI, generics.ListCreateAPIView):
     serializer_class = MaintenanceScheduleSerializer
 
     def get_queryset(self):
+        refresh_mileage_schedules()
         schedules = MaintenanceSchedule.objects.all()
         for field, param in [('car_id', 'car_id'), ('status', 'status')]:
             if self.request.query_params.get(param):

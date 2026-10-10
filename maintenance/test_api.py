@@ -48,3 +48,36 @@ class OperationsAPITests(TestCase):
         self.client.credentials()
         for url in ['/api/staff/', '/api/services/', '/api/schedules/', '/api/service-types/']:
             self.assertEqual(self.client.get(url).status_code, 401)
+
+    def test_mileage_reminders_and_completed_work_reset_intervals(self):
+        from .models import ServiceType, MaintenanceSchedule
+        from .intervals import CHECKUP, SERVICE
+        self.car.odometer = 10000
+        self.car.save()
+        for _ in range(2):
+            response = self.client.get('/api/schedules/')
+            self.assertEqual(response.status_code, 200)
+        self.assertEqual(MaintenanceSchedule.objects.filter(car=self.car).count(), 2)
+        checkup = MaintenanceSchedule.objects.get(car=self.car, service_type__name=CHECKUP)
+        self.assertEqual(checkup.status, 'overdue')
+        self.assertEqual(self.client.patch(f'/api/schedules/{checkup.pk}/', {'status': 'completed'}, format='json').status_code, 400)
+        payload = {'car': self.car.pk, 'service_type': ServiceType.objects.get(name=SERVICE).pk,
+                   'service_date': '2026-10-09', 'odometer_reading': 10000,
+                   'service_center': 'Workshop', 'parts_cost': '200', 'labor_cost': '100'}
+        result = self.client.post('/api/services/', payload, format='json')
+        self.assertEqual(result.status_code, 201, result.data)
+        self.assertEqual(result.data['total_cost'], '300.00')
+        checkup.refresh_from_db()
+        self.assertEqual(checkup.status, 'completed')
+        active = MaintenanceSchedule.objects.filter(car=self.car).exclude(status__in=['completed', 'cancelled'])
+        self.assertEqual(active.get(service_type__name=CHECKUP).due_odometer, 15000)
+        self.assertEqual(active.get(service_type__name=SERVICE).due_odometer, 20000)
+        self.car.odometer = 15000
+        self.car.save()
+        self.client.get('/api/schedules/')
+        self.assertEqual(active.get(service_type__name=CHECKUP).status, 'due')
+        payload['service_type'] = ServiceType.objects.get(name=CHECKUP).pk
+        payload['odometer_reading'] = 15000
+        self.assertEqual(self.client.post('/api/services/', payload, format='json').status_code, 201)
+        self.assertEqual(active.get(service_type__name=CHECKUP).due_odometer, 20000)
+        self.assertEqual(active.get(service_type__name=SERVICE).due_odometer, 20000)

@@ -28,6 +28,10 @@ class Booking(models.Model):
     status = models.CharField(max_length=12, choices=STATUS, default='pending')
     assigned_email = models.EmailField(blank=True)
     notes = models.TextField(blank=True)
+    pickup_odometer = models.PositiveIntegerField(null=True, blank=True)
+    return_odometer = models.PositiveIntegerField(null=True, blank=True)
+    return_notes = models.TextField(blank=True)
+    returned_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

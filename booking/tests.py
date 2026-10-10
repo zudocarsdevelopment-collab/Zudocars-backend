@@ -54,6 +54,34 @@ class LocalBookingTests(TestCase):
         self.assertEqual(available.data['vehicles'], [])
         self.assertEqual(Booking.objects.count(), 1)
 
+    def test_daily_price_is_used_for_availability_and_booking(self):
+        self.vehicle.daily_price = Decimal('1800.00')
+        self.vehicle.save()
+        available = self.client.post('/api/vehicles/available/', self.payload, format='json')
+        self.assertEqual(available.status_code, 200)
+        self.assertEqual(available.data['vehicles'][0]['daily_price'], '1800.00')
+        self.assertEqual(available.data['vehicles'][0]['total_incl_tax'], '1800.00')
+        reference = self.create_booking()
+        self.assertEqual(Booking.objects.get(reference=reference).rental_amount, Decimal('1800.00'))
+
+    def test_daily_price_charges_each_started_day(self):
+        from .booking import quote
+        start = timezone.now()
+        self.vehicle.daily_price = Decimal('1800.00')
+        for duration, expected in [(timedelta(hours=4), '1800.00'),
+                                   (timedelta(hours=24), '1800.00'),
+                                   (timedelta(hours=24, seconds=1), '3600.00'),
+                                   (timedelta(hours=48), '3600.00')]:
+            with self.subTest(duration=duration):
+                self.assertEqual(quote(self.vehicle, start, start + duration)['rental'], Decimal(expected))
+
+    def test_invalid_daily_price_is_rejected(self):
+        from fleet.serializers import VehicleSerializer
+        for value in ['0.00', '-1.00']:
+            serializer = VehicleSerializer(self.vehicle, data={'daily_price': value}, partial=True)
+            self.assertFalse(serializer.is_valid())
+            self.assertIn('daily_price', serializer.errors)
+
     def test_adjacent_windows_are_allowed(self):
         self.create_booking()
         self.payload['time_from'] = '13:00'
@@ -82,8 +110,44 @@ class LocalBookingTests(TestCase):
         reference = self.create_booking()
         self.sign_in()
         for state in ('confirmed', 'completed'):
-            self.assertEqual(self.client.patch(f'/api/bookings/{reference}/', {'status': state}, format='json').status_code, 200)
+            payload = {'status': state}
+            if state == 'completed':
+                payload['return_odometer'] = 100
+            self.assertEqual(self.client.patch(f'/api/bookings/{reference}/', payload, format='json').status_code, 200)
         self.assertEqual(self.client.patch(f'/api/bookings/{reference}/', {'status': 'confirmed'}, format='json').status_code, 400)
+
+    def test_return_updates_mileage_and_maintenance_atomically(self):
+        from maintenance.models import MaintenanceSchedule
+        from maintenance.intervals import CHECKUP, SERVICE
+        self.vehicle.odometer = 4900
+        self.vehicle.save()
+        reference = self.create_booking()
+        self.sign_in()
+        url = f'/api/bookings/{reference}/'
+        self.assertEqual(self.client.patch(url, {'status': 'confirmed'}, format='json').status_code, 200)
+        for payload in [{'status': 'completed'}, {'status': 'completed', 'return_odometer': 4800}]:
+            self.assertEqual(self.client.patch(url, payload, format='json').status_code, 400)
+        self.vehicle.refresh_from_db()
+        self.assertEqual(self.vehicle.odometer, 4900)
+        self.assertEqual(Booking.objects.get(reference=reference).status, 'confirmed')
+        response = self.client.patch(url, {'status': 'completed', 'return_odometer': 5100, 'return_notes': 'Fuel full'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['pickup_odometer'], 4900)
+        self.assertEqual(response.data['return_odometer'], 5100)
+        self.assertEqual(response.data['return_notes'], 'Fuel full')
+        self.assertIsNotNone(response.data['returned_at'])
+        self.vehicle.refresh_from_db()
+        self.assertEqual(self.vehicle.odometer, 5100)
+        self.assertEqual(MaintenanceSchedule.objects.get(car=self.vehicle, service_type__name=CHECKUP).status, 'overdue')
+        self.assertEqual(MaintenanceSchedule.objects.get(car=self.vehicle, service_type__name=SERVICE).due_odometer, 10000)
+        self.assertEqual(self.client.patch(url, {'status': 'completed'}, format='json').status_code, 200)
+        self.assertEqual(MaintenanceSchedule.objects.filter(car=self.vehicle).count(), 2)
+        self.assertEqual(self.client.patch(url, {'return_odometer': 6000}, format='json').status_code, 400)
+
+    def test_return_details_require_confirmed_trip(self):
+        reference = self.create_booking()
+        self.sign_in()
+        self.assertEqual(self.client.patch(f'/api/bookings/{reference}/', {'return_odometer': 100}, format='json').status_code, 400)
 
     def test_invalid_dates_phone_and_unpriced_vehicle_are_rejected(self):
         for changes in ({'time_to': '08:00'}, {'time_from': '25:00'}, {'customer_phone': 'bad'}):
@@ -106,6 +170,22 @@ class LocalBookingTests(TestCase):
             text = '\n'.join(page.extract_text() for page in PdfReader(pdf).pages)
             self.assertIn(reference, text)
             self.assertIn('1,600', text)
+
+    def test_generated_pdf_url_serves_pdf_without_nginx_media_access(self):
+        from urllib.parse import urlsplit
+        reference = self.create_booking()
+        with TemporaryDirectory(dir=settings.BASE_DIR) as directory, override_settings(MEDIA_ROOT=directory):
+            response = self.client.post('/api/estimates/pdf/', {'booking_reference': reference}, format='json')
+            self.assertEqual(response.status_code, 201, response.data)
+            path = urlsplit(response.data['pdf_url']).path
+            self.assertTrue(path.startswith('/api/estimates/pdf/'))
+            download = self.client.get(path)
+            self.assertEqual(download.status_code, 200)
+            self.assertEqual(download['Content-Type'], 'application/pdf')
+            self.assertTrue(download['Content-Disposition'].startswith('inline;'))
+            self.assertTrue(b''.join(download.streaming_content).startswith(b'%PDF'))
+            self.assertEqual(self.client.get('/api/estimates/pdf/settings.py/').status_code, 404)
+            self.assertEqual(self.client.get('/api/estimates/pdf/zudo-booking-ZUDO-000000000000-00000000.pdf/').status_code, 404)
 
     def test_invalid_token_is_rejected(self):
         self.client.credentials(HTTP_AUTHORIZATION='Bearer invalid-token')
