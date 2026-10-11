@@ -74,6 +74,12 @@ class VehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
 
+    def delete(self, request, *args, **kwargs):
+        try:
+            return super().delete(request, *args, **kwargs)
+        except ProtectedError:
+            return Response({'error': 'This vehicle has linked bookings, maintenance records, schedules, or expenses and cannot be deleted. Use Disable in Fleet to stop new bookings while keeping its history.'}, status=409)
+
 class SyncVehiclesAPIView(APIView):
     # permission_classes = [IsAdminUser]  # only staff/admin users can trigger this
 
