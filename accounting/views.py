@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 from authenticator.authentication import DashboardAuthentication
 from booking.models import Booking
 from maintenance.models import ServiceRecord
+from fleet.models import Vehicle
 from .models import Payment, Expense
 from .serializers import PaymentSerializer, ExpenseSerializer
 
@@ -47,6 +48,7 @@ class SummaryAPI(AccountingAPI):
         return Response({'revenue': str(revenue), 'received': str(received), 'outstanding': str(outstanding), 'customer_credit': str(credit),
                          'expenses': str(maintenance + manual), 'maintenance_expenses': str(maintenance), 'manual_expenses': str(manual),
                          'net_balance': str(revenue - maintenance - manual), 'bookings': rows,
+                         'vehicles': list(Vehicle.objects.values('id', 'plate_number')),
                          'payments': PaymentSerializer(Payment.objects.select_related('booking').all(), many=True).data,
                          'expense_entries': ExpenseSerializer(Expense.objects.all(), many=True).data,
                          'maintenance_entries': [{'id': s.pk, 'date': s.service_date, 'description': s.description or s.service_center,

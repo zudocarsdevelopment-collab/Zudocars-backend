@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core import signing
 from rest_framework.test import APIClient
-from .models import Vehicle, PickupHub
+from .models import Vehicle, PickupHub, Location
 
 
 class PickupHubTests(TestCase):
@@ -13,7 +13,8 @@ class PickupHubTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + token)
 
     def test_hub_crud_and_vehicle_connection(self):
-        hub = self.client.post('/api/pickup-hubs/', {'name': 'Airport hub', 'city': 'Kochi'}, format='json')
+        location = Location.objects.create(name='Kochi')
+        hub = self.client.post('/api/pickup-hubs/', {'name': 'Airport hub', 'location': location.pk}, format='json')
         self.assertEqual(hub.status_code, 201)
         car = Vehicle.objects.create(external_id='local-car', plate_number='KL01TEST')
         response = self.client.patch(f'/api/vehicles/{car.pk}/', {'pickup_hub': hub.data['id']}, format='json')

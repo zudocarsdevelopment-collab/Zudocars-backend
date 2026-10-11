@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Payment, Expense
+from .models import Payment, Expense, accounting_date
 from booking.models import Booking
 
 
@@ -11,7 +11,7 @@ class EntrySerializer(serializers.ModelSerializer):
         return value
 
     def validate_date(self, value):
-        if value > timezone.localdate():
+        if value > accounting_date():
             raise serializers.ValidationError('Recorded transactions cannot have a future date.')
         return value
 

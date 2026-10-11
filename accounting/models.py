@@ -1,11 +1,16 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from zoneinfo import ZoneInfo
+
+
+def accounting_date():
+    return timezone.localdate(timezone=ZoneInfo('Asia/Kolkata'))
 
 
 class Entry(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    date = models.DateField(default=timezone.localdate)
+    date = models.DateField(default=accounting_date)
     reference = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
