@@ -3,6 +3,7 @@ from django.urls import path
 from .views import VehicleListCreateAPIView, VehicleRetrieveUpdateDestroyAPIView, SyncVehiclesAPIView, SyncStatusAPIView
 from .views import PickupHubListAPIView, PickupHubDetailAPIView
 from .views import LocationListAPIView, LocationDetailAPIView
+from .bulk_prices import BulkDailyPriceAPI
 
 urlpatterns = [
     path('locations/', LocationListAPIView.as_view(), name='location-list'),
@@ -10,6 +11,7 @@ urlpatterns = [
     path('pickup-hubs/', PickupHubListAPIView.as_view(), name='pickup-hub-list'),
     path('pickup-hubs/<int:pk>/', PickupHubDetailAPIView.as_view(), name='pickup-hub-detail'),
     path('vehicles/', VehicleListCreateAPIView.as_view(), name='vehicle-list-create'),
+    path('vehicles/bulk-daily-price/', BulkDailyPriceAPI.as_view(), name='bulk-daily-price'),
     path('vehicles/<int:pk>/', VehicleRetrieveUpdateDestroyAPIView.as_view(), name='vehicle-detail'),
     path('vehicles/sync/', SyncVehiclesAPIView.as_view(), name='sync-vehicles'),
     path('vehicles/sync/<str:task_id>/', SyncStatusAPIView.as_view(), name='sync-status'),
