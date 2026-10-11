@@ -3,7 +3,9 @@ from rest_framework.permissions import IsAuthenticated
 from authenticator.authentication import DashboardAuthentication
 from .models import ServiceType, ServiceRecord, MaintenanceSchedule
 from .serializers import ServiceTypeSerializer, ServiceRecordSerializer, MaintenanceScheduleSerializer
-from .intervals import refresh_mileage_schedules
+from .intervals import refresh_mileage_schedules, sync_vehicle_maintenance
+from django.db import transaction
+from fleet.models import Vehicle
 
 
 class OperatorAPI:
@@ -38,6 +40,12 @@ class ServiceRecordAPIView(OperatorAPI, generics.ListCreateAPIView):
 class ServiceRecordDetailAPIView(OperatorAPI, generics.RetrieveUpdateDestroyAPIView):
     queryset = ServiceRecord.objects.all()
     serializer_class = ServiceRecordSerializer
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            vehicle = Vehicle.objects.select_for_update().get(pk=instance.car_id)
+            instance.delete()
+            sync_vehicle_maintenance(vehicle)
 
 
 class MaintenanceScheduleAPIView(OperatorAPI, generics.ListCreateAPIView):

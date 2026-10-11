@@ -10,6 +10,7 @@ from .services import sync_vehicles_from_therentos
 from .models import Vehicle, PickupHub, Location
 from .serializers import VehicleSerializer, PickupHubSerializer, LocationSerializer
 from django.db.models import Q
+from django.db import transaction
 
 
 class LocationListAPIView(generics.ListCreateAPIView):
@@ -76,9 +77,25 @@ class VehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
 
     def delete(self, request, *args, **kwargs):
         try:
-            return super().delete(request, *args, **kwargs)
+            with transaction.atomic():
+                vehicle = Vehicle.objects.select_for_update().get(pk=self.get_object().pk)
+                from maintenance.intervals import CHECKUP, SERVICE
+                # Unused automatic reminders are not service history.
+                vehicle.maintenance_schedules.filter(service_type__name__in=[CHECKUP, SERVICE]).exclude(status='completed').delete()
+                vehicle.delete()
+            return Response(status=204)
         except ProtectedError:
-            return Response({'error': 'This vehicle has linked bookings, maintenance records, schedules, or expenses and cannot be deleted. Use Disable in Fleet to stop new bookings while keeping its history.'}, status=409)
+            vehicle = self.get_object()
+            from accounting.models import Expense
+            blockers = {
+                'active bookings': vehicle.bookings.filter(status__in=['pending', 'confirmed']).count(),
+                'past bookings': vehicle.bookings.exclude(status__in=['pending', 'confirmed']).count(),
+                'service records': vehicle.service_records.count(),
+                'manual or completed schedules': vehicle.maintenance_schedules.exclude(Q(service_type__name__in=[CHECKUP, SERVICE]) & ~Q(status='completed')).count(),
+                'expense records': Expense.objects.filter(vehicle=vehicle).count(),
+            }
+            details = ', '.join(f'{count} {name}' for name, count in blockers.items() if count)
+            return Response({'error': f'Cannot delete this vehicle: {details or "linked history"}. Past records also prevent permanent deletion. Use Disable in Fleet to stop new bookings while keeping its history.', 'blockers': blockers}, status=409)
 
 class SyncVehiclesAPIView(APIView):
     # permission_classes = [IsAdminUser]  # only staff/admin users can trigger this

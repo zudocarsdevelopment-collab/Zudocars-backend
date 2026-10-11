@@ -6,6 +6,26 @@ from fleet.models import Vehicle
 
 
 class OperationsAPITests(TestCase):
+    def test_deleting_service_recalculates_reminders_and_expenses(self):
+        from .models import ServiceType, ServiceRecord, MaintenanceSchedule
+        from .intervals import SERVICE
+        from django.utils import timezone
+        kind = ServiceType.objects.create(name=SERVICE)
+        record = self.client.post('/api/services/', {'car': self.car.pk, 'service_type': kind.pk,
+            'service_date': str(timezone.localdate()), 'odometer_reading': 10000, 'service_center': 'Workshop',
+            'parts_cost': '100', 'labor_cost': '50'}, format='json')
+        self.assertEqual(record.status_code, 201, record.data)
+        self.assertEqual(float(self.client.get('/api/accounts/summary/').data['expenses']), 150)
+        self.assertEqual(self.client.delete(f"/api/services/{record.data['id']}/").status_code, 204)
+        self.assertFalse(ServiceRecord.objects.exists())
+        self.car.refresh_from_db()
+        self.assertEqual(self.car.odometer, 10000)
+        active = MaintenanceSchedule.objects.filter(car=self.car, service_type=kind).exclude(status__in=['completed', 'cancelled']).get()
+        self.assertEqual(active.due_odometer, 10000)
+        self.assertEqual(float(self.client.get('/api/accounts/summary/').data['expenses']), 0)
+        self.client.credentials()
+        self.assertEqual(self.client.delete('/api/services/999/').status_code, 401)
+
     def setUp(self):
         self.client = APIClient()
         user = get_user_model().objects.create_user(username='operator', password='test-password')

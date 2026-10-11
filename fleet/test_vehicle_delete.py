@@ -16,11 +16,19 @@ class VehicleDeleteTests(TestCase):
         self.assertEqual(self.client.delete(f'/api/vehicles/{self.car.pk}/').status_code, 204)
         self.assertFalse(Vehicle.objects.filter(pk=self.car.pk).exists())
 
+    def test_automatic_reminders_do_not_block_unused_vehicle_deletion(self):
+        from maintenance.intervals import sync_vehicle_maintenance
+        sync_vehicle_maintenance(self.car)
+        self.assertEqual(self.car.maintenance_schedules.count(), 2)
+        self.assertEqual(self.client.delete(f'/api/vehicles/{self.car.pk}/').status_code, 204)
+        self.assertFalse(MaintenanceSchedule.objects.filter(car_id=self.car.pk).exists())
+
     def test_schedules_return_clear_json_conflict_and_disable_retains_history(self):
         schedule = MaintenanceSchedule.objects.create(car=self.car, due_odometer=1000)
         response = self.client.delete(f'/api/vehicles/{self.car.pk}/')
         self.assertEqual(response.status_code, 409)
         self.assertIn('Disable', response.data['error'])
+        self.assertEqual(response.data['blockers']['manual or completed schedules'], 1)
         self.assertEqual(response['Content-Type'], 'application/json')
         self.assertTrue(Vehicle.objects.filter(pk=self.car.pk).exists())
         self.assertEqual(self.client.patch(f'/api/vehicles/{self.car.pk}/', {'is_active': False}, format='json').status_code, 200)
