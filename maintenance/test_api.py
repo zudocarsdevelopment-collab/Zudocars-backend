@@ -6,6 +6,45 @@ from fleet.models import Vehicle
 
 
 class OperationsAPITests(TestCase):
+    def test_new_schedule_updates_existing_active_schedule_and_preserves_history(self):
+        from .models import MaintenanceSchedule, ServiceType
+        kind = ServiceType.objects.create(name='Tyre inspection')
+        past = MaintenanceSchedule.objects.create(car=self.car, service_type=kind, due_odometer=500, status='completed')
+        old = MaintenanceSchedule.objects.create(car=self.car, service_type=kind, due_odometer=1000, status='due')
+        response = self.client.post('/api/schedules/', {'car': self.car.pk, 'service_type': kind.pk,
+            'due_odometer': 2500, 'due_date': '2026-12-01', 'notes': 'Updated appointment', 'status': 'scheduled'}, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['id'], old.pk)
+        old.refresh_from_db(); past.refresh_from_db()
+        self.assertEqual(old.due_odometer, 2500)
+        self.assertEqual(old.status, 'scheduled')
+        self.assertEqual(old.notes, 'Updated appointment')
+        self.assertEqual(past.status, 'completed')
+        self.assertEqual(MaintenanceSchedule.objects.filter(car=self.car, service_type=kind).count(), 2)
+
+    def test_manual_schedule_with_automatic_service_type_is_not_cancelled(self):
+        from .models import ServiceType, MaintenanceSchedule
+        from .intervals import CHECKUP
+        self.client.get('/api/schedules/')
+        kind = ServiceType.objects.get(name=CHECKUP)
+        result = self.client.post('/api/schedules/', {'car': self.car.pk, 'service_type': kind.pk,
+            'due_date': '2026-11-10', 'due_odometer': 6000, 'status': 'scheduled', 'is_automatic': True}, format='json')
+        self.assertEqual(result.status_code, 201, result.data)
+        self.assertFalse(result.data['is_automatic'])
+        for _ in range(2):
+            self.client.get('/api/service-types/')
+            self.client.get('/api/schedules/')
+        manual = MaintenanceSchedule.objects.get(pk=result.data['id'])
+        self.assertEqual(manual.status, 'scheduled')
+        self.assertEqual(manual.due_odometer, 6000)
+        self.assertEqual(MaintenanceSchedule.objects.filter(car=self.car, service_type=kind, is_automatic=True).count(), 0)
+        self.assertEqual(MaintenanceSchedule.objects.filter(car=self.car, service_type=kind).count(), 1)
+        response = self.client.patch(f'/api/schedules/{manual.pk}/', {'status': 'due'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.client.get('/api/schedules/')
+        manual.refresh_from_db()
+        self.assertEqual(manual.status, 'due')
+
     def test_deleting_service_recalculates_reminders_and_expenses(self):
         from .models import ServiceType, ServiceRecord, MaintenanceSchedule
         from .intervals import SERVICE

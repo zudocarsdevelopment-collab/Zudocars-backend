@@ -43,6 +43,19 @@ class ServiceRecordSerializer(serializers.ModelSerializer):
 
 
 class MaintenanceScheduleSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        with transaction.atomic():
+            vehicle = Vehicle.objects.select_for_update().get(pk=validated_data['car'].pk)
+            if validated_data.get('status', 'scheduled') not in ('completed', 'cancelled'):
+                active = MaintenanceSchedule.objects.filter(car=vehicle, service_type=validated_data.get('service_type')).exclude(status__in=['completed', 'cancelled'])
+                existing = active.order_by('is_automatic', '-pk').first()
+                if existing:
+                    active.exclude(pk=existing.pk).update(status='cancelled')
+                    validated_data.setdefault('status', 'scheduled')
+                    validated_data['is_automatic'] = False
+                    return super().update(existing, validated_data)
+            return super().create(validated_data)
+
     class Meta:
         model = MaintenanceSchedule
         fields = '__all__'
@@ -52,6 +65,6 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
         due_odometer = attrs.get('due_odometer', getattr(self.instance, 'due_odometer', None))
         if due_date is None and due_odometer is None:
             raise serializers.ValidationError('Set a due date or due odometer.')
-        if self.instance and self.instance.service_type and self.instance.service_type.name in [CHECKUP, SERVICE]:
+        if self.instance and self.instance.is_automatic:
             raise serializers.ValidationError('Mileage reminders update automatically. Log a completed checkup or full service in Service History.')
         return attrs

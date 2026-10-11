@@ -14,11 +14,14 @@ def sync_vehicle_maintenance(vehicle):
         (SERVICE, 10000, [SERVICE]),
     ):
         kind, _ = ServiceType.objects.get_or_create(name=name)
+        if MaintenanceSchedule.objects.filter(car=vehicle, service_type=kind, is_automatic=False).exclude(status__in=['completed', 'cancelled']).exists():
+            # An operator's replacement schedule takes priority until closed.
+            continue
         last = ServiceRecord.objects.filter(car=vehicle, service_type__name__in=completed_types).aggregate(
             reading=Max('odometer_reading'))['reading'] or 0
         due = last + interval
         status = 'overdue' if vehicle.odometer > due else 'due' if vehicle.odometer == due else 'scheduled'
-        active = MaintenanceSchedule.objects.filter(car=vehicle, service_type=kind).exclude(status__in=['completed', 'cancelled'])
+        active = MaintenanceSchedule.objects.filter(car=vehicle, service_type=kind, is_automatic=True).exclude(status__in=['completed', 'cancelled'])
         schedule = active.order_by('pk').first()
         if schedule:
             active.exclude(pk=schedule.pk).update(status='cancelled')
@@ -26,7 +29,7 @@ def sync_vehicle_maintenance(vehicle):
             schedule.status = status
             schedule.save(update_fields=['due_odometer', 'status'])
         else:
-            MaintenanceSchedule.objects.create(car=vehicle, service_type=kind, due_odometer=due, status=status,
+            MaintenanceSchedule.objects.create(car=vehicle, service_type=kind, due_odometer=due, status=status, is_automatic=True,
                                                notes=f'Every {interval:,} km. Log completed maintenance to reset the interval.')
 
 

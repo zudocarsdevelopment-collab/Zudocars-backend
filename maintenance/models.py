@@ -31,6 +31,7 @@ class ServiceRecord(models.Model):
 
 
 class MaintenanceSchedule(models.Model):
+    is_automatic = models.BooleanField(default=False, editable=False)
     STATUS = [(s, s.title()) for s in ('scheduled', 'due', 'overdue', 'completed', 'cancelled')]
     car = models.ForeignKey('fleet.Vehicle', on_delete=models.PROTECT, related_name='maintenance_schedules')
     service_type = models.ForeignKey(ServiceType, null=True, blank=True, on_delete=models.SET_NULL)
