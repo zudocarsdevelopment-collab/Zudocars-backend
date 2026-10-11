@@ -13,6 +13,7 @@ from .booking import overlapping_bookings, quote, booking_result
 from django.utils import timezone
 from maintenance.intervals import sync_vehicle_maintenance
 from django.db.models import Max
+from django.db.models import Q
 
 
 class AvailableVehiclesAPIView(APIView):
@@ -32,7 +33,7 @@ class AvailableVehiclesAPIView(APIView):
         blocked = dict(Booking.objects.filter(status__in=['pending', 'confirmed']).values('vehicle_id').annotate(
             expected_return=Max('end_datetime')).values_list('vehicle_id', 'expected_return'))
         rows = []
-        for vehicle in Vehicle.objects.filter(is_active=True, pickup_hub_id=data['pickup_location_id'], pickup_hub__is_active=True, vehicle_type__iexact=data['vehicle_type']):
+        for vehicle in Vehicle.objects.filter(Q(pickup_hub__location__is_active=True) | Q(pickup_hub__location__isnull=True), is_active=True, pickup_hub_id=data['pickup_location_id'], pickup_hub__is_active=True, vehicle_type__iexact=data['vehicle_type']):
             pricing = quote(vehicle, start, end)
             available = vehicle.pk not in blocked and pricing is not None
             if not available and not data['include_unavailable']:
@@ -64,9 +65,11 @@ class CreateEstimateBookingAPIView(APIView):
             vehicle = get_object_or_404(Vehicle.objects.select_for_update(), pk=data['cart_vehicle'], is_active=True)
             if vehicle.pickup_hub_id != data['pickup_location_id']:
                 raise ValidationError('This vehicle belongs to a different pickup hub.')
-            if not PickupHub.objects.filter(pk=data['pickup_location_id'], is_active=True).exists():
+            if not PickupHub.objects.filter(Q(location__is_active=True) | Q(location__isnull=True), pk=data['pickup_location_id'], is_active=True).exists():
                 raise ValidationError('The pickup hub is unavailable.')
             dropoff = get_object_or_404(PickupHub, pk=data['dropoff_location_id'], is_active=True)
+            if dropoff.location and not dropoff.location.is_active:
+                raise ValidationError('The return location is unavailable.')
             data['pickup_custom_payload'] = vehicle.pickup_hub.name
             data['dropoff_custom_payload'] = dropoff.name
             start, end = data['start_datetime'], data['end_datetime']

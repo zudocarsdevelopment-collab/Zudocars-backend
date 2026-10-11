@@ -2,8 +2,11 @@ from django.urls import path
 
 from .views import VehicleListCreateAPIView, VehicleRetrieveUpdateDestroyAPIView, SyncVehiclesAPIView, SyncStatusAPIView
 from .views import PickupHubListAPIView, PickupHubDetailAPIView
+from .views import LocationListAPIView, LocationDetailAPIView
 
 urlpatterns = [
+    path('locations/', LocationListAPIView.as_view(), name='location-list'),
+    path('locations/<int:pk>/', LocationDetailAPIView.as_view(), name='location-detail'),
     path('pickup-hubs/', PickupHubListAPIView.as_view(), name='pickup-hub-list'),
     path('pickup-hubs/<int:pk>/', PickupHubDetailAPIView.as_view(), name='pickup-hub-detail'),
     path('vehicles/', VehicleListCreateAPIView.as_view(), name='vehicle-list-create'),

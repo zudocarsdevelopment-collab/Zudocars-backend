@@ -7,8 +7,35 @@ from django.db.models.deletion import ProtectedError
 from .tasks import sync_vehicles_task
 from celery.result import AsyncResult
 from .services import sync_vehicles_from_therentos
-from .models import Vehicle, PickupHub
-from .serializers import VehicleSerializer, PickupHubSerializer
+from .models import Vehicle, PickupHub, Location
+from .serializers import VehicleSerializer, PickupHubSerializer, LocationSerializer
+from django.db.models import Q
+
+
+class LocationListAPIView(generics.ListCreateAPIView):
+    authentication_classes = [DashboardAuthentication]
+    serializer_class = LocationSerializer
+
+    def get_permissions(self):
+        return [AllowAny()] if self.request.method == 'GET' else [IsAuthenticated()]
+
+    def get_queryset(self):
+        if self.request.user.is_authenticated and self.request.query_params.get('include_inactive') == '1':
+            return Location.objects.all()
+        return Location.objects.filter(is_active=True)
+
+
+class LocationDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    authentication_classes = [DashboardAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = LocationSerializer
+    queryset = Location.objects.all()
+
+    def delete(self, request, *args, **kwargs):
+        try:
+            return super().delete(request, *args, **kwargs)
+        except ProtectedError:
+            return Response({'error': 'This location has pickup hubs. Reassign them or deactivate the location.'}, status=409)
 
 
 class PickupHubListAPIView(generics.ListCreateAPIView):
@@ -19,10 +46,10 @@ class PickupHubListAPIView(generics.ListCreateAPIView):
         return [AllowAny()] if self.request.method == 'GET' else [IsAuthenticated()]
 
     def get_queryset(self):
-        hubs = PickupHub.objects.all()
+        hubs = PickupHub.objects.select_related('location')
         if self.request.user.is_authenticated and self.request.query_params.get('include_inactive') == '1':
             return hubs
-        return hubs.filter(is_active=True)
+        return hubs.filter(Q(location__is_active=True) | Q(location__isnull=True), is_active=True)
 
 
 class PickupHubDetailAPIView(generics.RetrieveUpdateDestroyAPIView):

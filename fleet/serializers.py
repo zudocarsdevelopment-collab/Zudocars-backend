@@ -1,7 +1,7 @@
 from rest_framework import serializers
 import uuid
 
-from .models import Vehicle, PickupHub
+from .models import Vehicle, PickupHub, Location
 
 
 class VehicleSerializer(serializers.ModelSerializer):
@@ -24,10 +24,12 @@ class VehicleSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
         extra_kwargs = {
-            'external_id': {'required': False},  # auto-filled on manual add, see view
+            'external_id': {'required': False, 'allow_blank': True},
         }
 
     def validate_external_id(self, value):
+        if not value:
+            return self.instance.external_id if self.instance else 'ZUDO-' + uuid.uuid4().hex
         qs = Vehicle.objects.filter(external_id=value)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
@@ -38,12 +40,25 @@ class VehicleSerializer(serializers.ModelSerializer):
         return value
 
     def validate_pickup_hub(self, value):
-        if value and not value.is_active:
+        if value and (not value.is_active or (value.location and not value.location.is_active)):
             raise serializers.ValidationError('Choose an active pickup hub.')
         return value
 
 
 class PickupHubSerializer(serializers.ModelSerializer):
+    location_name = serializers.CharField(source='location.name', read_only=True, default='')
     class Meta:
         model = PickupHub
-        fields = ['id', 'name', 'address', 'city', 'phone', 'is_active']
+        fields = ['id', 'name', 'location', 'location_name', 'address', 'city', 'phone', 'is_active']
+        extra_kwargs = {'location': {'required': True, 'allow_null': False}}
+
+    def validate_location(self, value):
+        if not value.is_active:
+            raise serializers.ValidationError('Choose an active location.')
+        return value
+
+
+class LocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Location
+        fields = ['id', 'name', 'is_active']
