@@ -79,9 +79,10 @@ class VehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
         try:
             with transaction.atomic():
                 vehicle = Vehicle.objects.select_for_update().get(pk=self.get_object().pk)
-                from maintenance.intervals import CHECKUP, SERVICE
-                # Unused automatic reminders are not service history.
-                vehicle.maintenance_schedules.filter(service_type__name__in=[CHECKUP, SERVICE]).exclude(status='completed').delete()
+                from accounting.models import Expense
+                # Schedules alone are not booking, service, or financial history.
+                if not (vehicle.bookings.exists() or vehicle.service_records.exists() or Expense.objects.filter(vehicle=vehicle).exists()):
+                    vehicle.maintenance_schedules.all().delete()
                 vehicle.delete()
             return Response(status=204)
         except ProtectedError:
@@ -91,7 +92,7 @@ class VehicleRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
                 'active bookings': vehicle.bookings.filter(status__in=['pending', 'confirmed']).count(),
                 'past bookings': vehicle.bookings.exclude(status__in=['pending', 'confirmed']).count(),
                 'service records': vehicle.service_records.count(),
-                'manual or completed schedules': vehicle.maintenance_schedules.exclude(Q(service_type__name__in=[CHECKUP, SERVICE]) & ~Q(status='completed')).count(),
+                'schedules': vehicle.maintenance_schedules.count(),
                 'expense records': Expense.objects.filter(vehicle=vehicle).count(),
             }
             details = ', '.join(f'{count} {name}' for name, count in blockers.items() if count)

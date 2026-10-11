@@ -23,12 +23,20 @@ class VehicleDeleteTests(TestCase):
         self.assertEqual(self.client.delete(f'/api/vehicles/{self.car.pk}/').status_code, 204)
         self.assertFalse(MaintenanceSchedule.objects.filter(car_id=self.car.pk).exists())
 
-    def test_schedules_return_clear_json_conflict_and_disable_retains_history(self):
+    def test_manual_and_completed_schedules_alone_allow_deletion(self):
+        for status in ['scheduled', 'completed']:
+            MaintenanceSchedule.objects.create(car=self.car, due_odometer=1000, status=status)
+        self.assertEqual(self.client.delete(f'/api/vehicles/{self.car.pk}/').status_code, 204)
+        self.assertFalse(MaintenanceSchedule.objects.filter(car_id=self.car.pk).exists())
+
+    def test_blocked_deletion_preserves_schedules_and_history(self):
         schedule = MaintenanceSchedule.objects.create(car=self.car, due_odometer=1000)
+        ServiceRecord.objects.create(car=self.car, service_date=timezone.localdate(), odometer_reading=0, service_center='Workshop')
         response = self.client.delete(f'/api/vehicles/{self.car.pk}/')
         self.assertEqual(response.status_code, 409)
         self.assertIn('Disable', response.data['error'])
-        self.assertEqual(response.data['blockers']['manual or completed schedules'], 1)
+        self.assertEqual(response.data['blockers']['schedules'], 1)
+        self.assertEqual(response.data['blockers']['service records'], 1)
         self.assertEqual(response['Content-Type'], 'application/json')
         self.assertTrue(Vehicle.objects.filter(pk=self.car.pk).exists())
         self.assertEqual(self.client.patch(f'/api/vehicles/{self.car.pk}/', {'is_active': False}, format='json').status_code, 200)
