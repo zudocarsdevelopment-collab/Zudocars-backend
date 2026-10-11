@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/', include('authenticator.urls')),
     path('api/', include('fleet.urls')),
     path('api/', include('booking.urls')),
+    path('api/', include('accounting.urls')),
     path('api/', include('maintenance.urls')),
     path('', include('authenticator.urls')),
         # Serve /media/ regardless of DEBUG.
