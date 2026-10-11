@@ -1,10 +1,11 @@
 from rest_framework import serializers
-from django.utils import timezone
 from .models import Payment, Expense, accounting_date
 from booking.models import Booking
 
 
 class EntrySerializer(serializers.ModelSerializer):
+    created_by_name = serializers.StringRelatedField(source='created_by', read_only=True)
+    voided_by_name = serializers.StringRelatedField(source='voided_by', read_only=True)
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError('Enter an amount greater than zero.')

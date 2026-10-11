@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.db import transaction, IntegrityError
 from uuid import UUID
 from django.shortcuts import get_object_or_404
@@ -49,8 +49,8 @@ class SummaryAPI(AccountingAPI):
                          'expenses': str(maintenance + manual), 'maintenance_expenses': str(maintenance), 'manual_expenses': str(manual),
                          'net_balance': str(revenue - maintenance - manual), 'bookings': rows,
                          'vehicles': list(Vehicle.objects.values('id', 'plate_number')),
-                         'payments': PaymentSerializer(Payment.objects.select_related('booking').all(), many=True).data,
-                         'expense_entries': ExpenseSerializer(Expense.objects.all(), many=True).data,
+                         'payments': PaymentSerializer(Payment.objects.select_related('booking', 'created_by', 'voided_by').all(), many=True).data,
+                         'expense_entries': ExpenseSerializer(Expense.objects.select_related('created_by', 'voided_by').all(), many=True).data,
                          'maintenance_entries': [{'id': s.pk, 'date': s.service_date, 'description': s.description or s.service_center,
                                                   'vehicle': s.car.plate_number, 'amount': str(s.total_cost)} for s in services]})
 
@@ -76,7 +76,7 @@ class EntryAPI(AccountingAPI):
                     if field == 'amount':
                         try:
                             same = Decimal(str(submitted)) == Decimal(original['amount'])
-                        except Exception:
+                        except (InvalidOperation, ValueError, TypeError):
                             same = False
                     if field in request.data and not same:
                         raise ValidationError('This submission ID was already used for a different transaction.')
