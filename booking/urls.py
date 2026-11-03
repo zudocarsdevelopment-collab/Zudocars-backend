@@ -2,9 +2,11 @@ from django.urls import path
 from .views import AvailableVehiclesAPIView, CreateEstimateBookingAPIView, BookingListAPIView, BookingDetailAPIView, CustomerSearchAPIView
 from .zudo_pdf_view import ZudoEstimatePDFAPIView, ZudoEstimatePDFDownloadAPIView
 from django.conf.urls.static import static
+from .sale_report import SaleReportAPIView
 
 
 urlpatterns = [
+    path('reports/sales/', SaleReportAPIView.as_view(), name='sale-report'),
     path('customers/', CustomerSearchAPIView.as_view(), name='customer-search'),
     path('bookings/', CreateEstimateBookingAPIView.as_view(), name='create-booking'),
     path('bookings/list/', BookingListAPIView.as_view(), name='booking-list'),
