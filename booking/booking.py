@@ -22,7 +22,7 @@ def quote(vehicle, start, end):
         if vehicle.hourly_rate is None or vehicle.hourly_rate <= 0:
             return None
         rental = max(hours * vehicle.hourly_rate, vehicle.min_hours_rate or Decimal('0')).quantize(Decimal('.01'))
-    delivery = Decimal(str(getattr(settings, 'BOOKING_DELIVERY_AMOUNT', '1200.00')))
+    delivery = vehicle.pickup_hub.effective_booking_amount if vehicle.pickup_hub_id else Decimal(str(getattr(settings, 'BOOKING_DELIVERY_AMOUNT', '1200.00')))
     return {'hours': int(hours), 'rental': rental, 'delivery': delivery, 'total': rental + delivery}
 
 

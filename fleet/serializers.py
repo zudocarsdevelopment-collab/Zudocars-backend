@@ -47,10 +47,11 @@ class VehicleSerializer(serializers.ModelSerializer):
 
 class PickupHubSerializer(serializers.ModelSerializer):
     location_name = serializers.CharField(source='location.name', read_only=True, default='')
+    effective_booking_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     class Meta:
         model = PickupHub
-        fields = ['id', 'name', 'location', 'location_name', 'address', 'city', 'phone', 'is_active']
-        extra_kwargs = {'location': {'required': True, 'allow_null': False}}
+        fields = ['id', 'name', 'location', 'location_name', 'address', 'city', 'phone', 'is_active', 'booking_amount', 'effective_booking_amount']
+        extra_kwargs = {'location': {'required': True, 'allow_null': False}, 'booking_amount': {'min_value': 0}}
 
     def validate_location(self, value):
         if not value.is_active:
@@ -61,4 +62,5 @@ class PickupHubSerializer(serializers.ModelSerializer):
 class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
-        fields = ['id', 'name', 'is_active']
+        fields = ['id', 'name', 'is_active', 'booking_amount']
+        extra_kwargs = {'booking_amount': {'min_value': 0}}

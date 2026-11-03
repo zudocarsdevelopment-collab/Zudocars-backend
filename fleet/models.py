@@ -10,6 +10,7 @@ def vehicle_external_id():
 
 
 class Location(models.Model):
+    booking_amount = models.DecimalField('Default booking charge', max_digits=10, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(Decimal('0'))])
     name = models.CharField(max_length=100, unique=True)
     is_active = models.BooleanField(default=True)
 
@@ -22,6 +23,7 @@ class Location(models.Model):
         return self.name
 
 class PickupHub(models.Model):
+    booking_amount = models.DecimalField('Booking charge override', max_digits=10, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(Decimal('0'))])
     location = models.ForeignKey(Location, verbose_name='hub', null=True, blank=True, on_delete=models.PROTECT, related_name='pickup_hubs')
     name = models.CharField(max_length=100, unique=True)
     address = models.TextField(blank=True)
@@ -36,6 +38,15 @@ class PickupHub(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def effective_booking_amount(self):
+        if self.booking_amount is not None:
+            return self.booking_amount
+        if self.location_id and self.location.booking_amount is not None:
+            return self.location.booking_amount
+        from django.conf import settings
+        return Decimal(str(getattr(settings, 'BOOKING_DELIVERY_AMOUNT', '1200.00')))
 
 class Vehicle(models.Model):
     pickup_hub = models.ForeignKey(PickupHub, verbose_name='pickup location', null=True, blank=True, on_delete=models.PROTECT, related_name='vehicles')
