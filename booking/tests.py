@@ -222,6 +222,34 @@ class LocalBookingTests(TestCase):
         self.assertEqual(response.data['booking']['pickup_custom_payload'], self.hub.name)
 
 class ManualBookingTests(LocalBookingTests):
+    def test_percentage_discount_saved_and_edited(self):
+        self.sign_in()
+        payload = {**self.old_payload(), 'discount_type': 'percentage', 'discount_value': '10'}
+        response = self.client.post('/api/bookings/list/', payload, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['discount_amount'], '150.00')
+        self.assertEqual(response.data['total_amount'], '1550.00')
+        reference = response.data['reference']
+        response = self.client.put(f'/api/bookings/{reference}/', {**payload, 'discount_type': 'flat', 'discount_value': '250.25'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['discount_amount'], '250.25')
+        self.assertEqual(response.data['total_amount'], '1449.75')
+        saved = Booking.objects.get(reference=reference)
+        self.assertEqual(saved.discount_value, Decimal('250.25'))
+
+    def test_invalid_discounts_rejected(self):
+        self.sign_in()
+        for kind, value in [('percentage', '100.01'), ('flat', '1500.01'), ('flat', '-1'), ('other', '10')]:
+            with self.subTest(kind=kind, value=value):
+                response = self.client.post('/api/bookings/list/', {**self.old_payload(), 'discount_type': kind, 'discount_value': value}, format='json')
+                self.assertEqual(response.status_code, 400, response.data)
+
+    def test_full_discount_keeps_location_charge(self):
+        self.sign_in()
+        response = self.client.post('/api/bookings/list/', {**self.old_payload(), 'discount_type': 'percentage', 'discount_value': '100'}, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['total_amount'], '200.00')
+
     def old_payload(self):
         start = timezone.localtime(timezone.now() - timedelta(days=10))
         end = start + timedelta(days=1)

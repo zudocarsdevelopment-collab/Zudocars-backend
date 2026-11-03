@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.utils import timezone
@@ -44,6 +45,8 @@ class BookingCreateSerializer(AvailabilitySerializer):
 
 
 class ManualBookingSerializer(BookingCreateSerializer):
+    discount_type = serializers.ChoiceField(choices=['flat', 'percentage'], default='flat')
+    discount_value = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, default=Decimal('0'))
     time_from = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
     time_to = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
     rental_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
@@ -56,10 +59,16 @@ class ManualBookingSerializer(BookingCreateSerializer):
             vehicle = Vehicle.objects.select_related('pickup_hub__location').filter(pk=attrs['cart_vehicle']).first()
             if vehicle is None:
                 raise serializers.ValidationError({'cart_vehicle': 'Select a valid vehicle.'})
-            from decimal import Decimal
             from django.conf import settings
             attrs['delivery_amount'] = vehicle.pickup_hub.effective_booking_amount if vehicle.pickup_hub_id else Decimal(str(getattr(settings, 'BOOKING_DELIVERY_AMOUNT', '1200.00')))
-        if attrs['rental_amount'] + attrs['delivery_amount'] > 99999999.99:
+        value = attrs['discount_value']
+        if attrs['discount_type'] == 'percentage' and value > 100:
+            raise serializers.ValidationError({'discount_value': 'Percentage must be between 0 and 100.'})
+        discount = (attrs['rental_amount'] * value / Decimal('100') if attrs['discount_type'] == 'percentage' else value).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+        if discount > attrs['rental_amount']:
+            raise serializers.ValidationError({'discount_value': 'Discount cannot exceed the rental amount.'})
+        attrs['discount_amount'] = discount
+        if attrs['rental_amount'] - discount + attrs['delivery_amount'] > Decimal('99999999.99'):
             raise serializers.ValidationError('Total amount must not exceed 99,999,999.99.')
         return attrs
 

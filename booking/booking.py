@@ -35,6 +35,7 @@ def booking_result(booking):
         'estimate': {
             'total_booking_hours': (booking.end_datetime - booking.start_datetime).total_seconds() / 3600,
             'vehicle': {'subtotal': float(booking.rental_amount)},
+            'discount_amount': float(booking.discount_amount),
             'reposition_charges': [{'name': 'Location charge', 'total_estimate': float(booking.delivery_amount), 'tax_amt': 0}],
             'total_final': float(booking.total_amount), 'total_deposit_estimate': 5000,
         },
@@ -78,7 +79,7 @@ def create_manual_booking(data, *, validate_only=False, instance=None):
     if validate_only:
         return None
     if instance:
-        for key in ('customer_name', 'customer_phone', 'customer_email', 'pickup_location_id', 'dropoff_location_id', 'notes', 'rental_amount', 'delivery_amount'):
+        for key in ('customer_name', 'customer_phone', 'customer_email', 'pickup_location_id', 'dropoff_location_id', 'notes', 'rental_amount', 'delivery_amount', 'discount_type', 'discount_value', 'discount_amount'):
             setattr(instance, key, data[key])
         if instance.vehicle_id != vehicle.pk:
             instance.pickup_odometer = vehicle.odometer if instance.status == 'confirmed' else None
@@ -88,7 +89,7 @@ def create_manual_booking(data, *, validate_only=False, instance=None):
         instance.start_datetime, instance.end_datetime = start, end
         instance.pickup_custom_payload = hubs[data['pickup_location_id']].name
         instance.dropoff_custom_payload = hubs[data['dropoff_location_id']].name
-        instance.total_amount = data['rental_amount'] + data['delivery_amount']
+        instance.total_amount = data['rental_amount'] - data['discount_amount'] + data['delivery_amount']
         instance.save()
         return instance
     return Booking.objects.create(
@@ -98,7 +99,8 @@ def create_manual_booking(data, *, validate_only=False, instance=None):
         returned_at=end if historical else None,
         pickup_odometer=None if historical else vehicle.odometer,
         rental_amount=data['rental_amount'], delivery_amount=data['delivery_amount'],
-        total_amount=data['rental_amount'] + data['delivery_amount'],
+        discount_type=data['discount_type'], discount_value=data['discount_value'], discount_amount=data['discount_amount'],
+        total_amount=data['rental_amount'] - data['discount_amount'] + data['delivery_amount'],
         pickup_custom_payload=hubs[data['pickup_location_id']].name,
         dropoff_custom_payload=hubs[data['dropoff_location_id']].name,
         **{key: data[key] for key in ('customer_name', 'customer_phone', 'customer_email', 'pickup_location_id', 'dropoff_location_id', 'notes')},

@@ -22,12 +22,14 @@ class CustomerAdmin(admin.ModelAdmin):
 
 
 class ManualBookingForm(forms.ModelForm):
+    discount_type = forms.ChoiceField(choices=Booking._meta.get_field('discount_type').choices, required=False, initial='flat')
+    discount_value = forms.DecimalField(required=False, initial=0, min_value=0, max_digits=10, decimal_places=2)
     class Meta:
         model = Booking
         labels = {'delivery_amount': 'Location charge'}
         fields = ['vehicle', 'customer_name', 'customer_phone', 'customer_email',
                   'start_datetime', 'end_datetime', 'pickup_location_id',
-                  'dropoff_location_id', 'rental_amount', 'delivery_amount', 'notes']
+                  'dropoff_location_id', 'rental_amount', 'discount_type', 'discount_value', 'delivery_amount', 'notes']
 
     def clean(self):
         data = super().clean()
@@ -39,6 +41,7 @@ class ManualBookingForm(forms.ModelForm):
         start, end = start.astimezone(booking_tz), end.astimezone(booking_tz)
         payload = {key: data.get(key, '') for key in ['customer_name', 'customer_phone', 'customer_email', 'pickup_location_id', 'dropoff_location_id', 'rental_amount', 'delivery_amount', 'notes']}
         payload.update(cart_vehicle=data['vehicle'].pk,
+                       discount_type=data.get('discount_type') or 'flat', discount_value=data.get('discount_value') or 0,
                        date_from=start.date(), time_from=start.strftime('%H:%M'),
                        date_to=end.date(), time_to=end.strftime('%H:%M'))
         serializer = ManualBookingSerializer(data=payload, context={'manual_booking': True})
