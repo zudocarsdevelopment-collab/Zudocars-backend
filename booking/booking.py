@@ -1,5 +1,6 @@
 from decimal import Decimal, ROUND_CEILING
 from django.conf import settings
+from django.db import transaction
 from .models import Booking
 
 
@@ -38,3 +39,38 @@ def booking_result(booking):
             'total_final': float(booking.total_amount), 'total_deposit_estimate': 5000,
         },
     }
+
+
+@transaction.atomic
+def create_manual_booking(data, *, validate_only=False):
+    from django.utils import timezone
+    from rest_framework.exceptions import ValidationError
+    from fleet.models import Vehicle, PickupHub
+
+    vehicle = Vehicle.objects.select_for_update().filter(pk=data['cart_vehicle']).first()
+    if vehicle is None:
+        raise ValidationError('Select a valid vehicle.')
+    start, end = data['start_datetime'], data['end_datetime']
+    historical = end <= timezone.now()
+    if vehicle.pickup_hub_id != data['pickup_location_id']:
+        raise ValidationError('Select the pickup hub belonging to this vehicle.')
+    hubs = {hub.pk: hub for hub in PickupHub.objects.filter(pk__in=[data['pickup_location_id'], data['dropoff_location_id']])}
+    if data['dropoff_location_id'] not in hubs:
+        raise ValidationError('Select a valid return hub.')
+    conflicts = Booking.objects.filter(vehicle=vehicle).exclude(status='cancelled').filter(start_datetime__lt=end, end_datetime__gt=start)
+    if conflicts.exists() or (not historical and overlapping_bookings(vehicle, start, end).exists()):
+        raise ValidationError('This vehicle already has a booking for this period or is awaiting return.')
+    if validate_only:
+        return None
+    return Booking.objects.create(
+        vehicle=vehicle, vehicle_plate_number=vehicle.plate_number,
+        cart_vehicle={'id': vehicle.pk, 'name': vehicle.category, 'asset_identifier': vehicle.plate_number},
+        start_datetime=start, end_datetime=end, status='completed' if historical else 'confirmed',
+        returned_at=end if historical else None,
+        pickup_odometer=None if historical else vehicle.odometer,
+        rental_amount=data['rental_amount'], delivery_amount=data['delivery_amount'],
+        total_amount=data['rental_amount'] + data['delivery_amount'],
+        pickup_custom_payload=hubs[data['pickup_location_id']].name,
+        dropoff_custom_payload=hubs[data['dropoff_location_id']].name,
+        **{key: data[key] for key in ('customer_name', 'customer_phone', 'customer_email', 'pickup_location_id', 'dropoff_location_id', 'notes')},
+    )

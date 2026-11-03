@@ -220,3 +220,58 @@ class LocalBookingTests(TestCase):
         response = self.client.post('/api/bookings/', {**self.payload, 'pickup_custom_payload': 'Forged name'}, format='json')
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['booking']['pickup_custom_payload'], self.hub.name)
+
+class ManualBookingTests(LocalBookingTests):
+    def old_payload(self):
+        start = timezone.localtime(timezone.now() - timedelta(days=10))
+        end = start + timedelta(days=1)
+        return {**self.payload, 'date_from': start.strftime('%Y-%m-%d'), 'time_from': start.strftime('%H:%M'),
+                'date_to': end.strftime('%Y-%m-%d'), 'time_to': end.strftime('%H:%M'),
+                'rental_amount': '1500.00', 'delivery_amount': '200.00'}
+
+    def test_manual_auth_and_public_date_restriction(self):
+        payload = self.old_payload()
+        self.assertEqual(self.client.post('/api/bookings/list/', payload, format='json').status_code, 401)
+        self.assertEqual(self.client.post('/api/bookings/', payload, format='json').status_code, 400)
+
+    def test_old_booking_completed_without_changing_fleet(self):
+        self.create_booking()
+        self.sign_in()
+        response = self.client.post('/api/bookings/list/', self.old_payload(), format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['status'], 'completed')
+        self.assertEqual(response.data['total_amount'], '1700.00')
+        self.assertIsNotNone(response.data['returned_at'])
+        self.vehicle.refresh_from_db()
+        self.assertEqual(self.vehicle.odometer, 0)
+
+    def test_manual_overlap_and_invalid_duration(self):
+        self.sign_in()
+        payload = self.old_payload()
+        self.assertEqual(self.client.post('/api/bookings/list/', payload, format='json').status_code, 201)
+        self.assertEqual(self.client.post('/api/bookings/list/', payload, format='json').status_code, 400)
+        payload.update(date_to=payload['date_from'], time_to=payload['time_from'])
+        self.assertEqual(self.client.post('/api/bookings/list/', payload, format='json').status_code, 400)
+
+    def test_manual_future_confirmed(self):
+        self.sign_in()
+        response = self.client.post('/api/bookings/list/', {**self.payload, 'rental_amount': '500', 'delivery_amount': '0'}, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['status'], 'confirmed')
+
+    def test_admin_add(self):
+        from django.urls import reverse
+        self.user.is_staff = self.user.is_superuser = True
+        self.user.save()
+        self.client.force_login(self.user)
+        url = reverse('admin:booking_booking_add')
+        self.assertEqual(self.client.get(url).status_code, 200)
+        start = timezone.localtime(timezone.now() - timedelta(days=10))
+        end = start + timedelta(days=1)
+        response = self.client.post(url, {'vehicle': self.vehicle.pk, 'customer_name': 'Old customer', 'customer_phone': '9000000000',
+            'start_datetime_0': start.strftime('%Y-%m-%d'), 'start_datetime_1': start.strftime('%H:%M:%S'),
+            'end_datetime_0': end.strftime('%Y-%m-%d'), 'end_datetime_1': end.strftime('%H:%M:%S'),
+            'pickup_location_id': self.hub.pk, 'dropoff_location_id': self.hub.pk,
+            'rental_amount': '1500', 'delivery_amount': '200', '_save': 'Save'})
+        self.assertEqual(response.status_code, 302, getattr(response, 'context_data', None))
+        self.assertEqual(Booking.objects.get().status, 'completed')

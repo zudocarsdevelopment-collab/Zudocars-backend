@@ -28,7 +28,7 @@ class AvailabilitySerializer(serializers.Serializer):
         attrs['end_datetime'] = timezone.make_aware(datetime.combine(attrs['date_to'], attrs['time_to']), tz)
         if attrs['end_datetime'] <= attrs['start_datetime']:
             raise serializers.ValidationError('Return time must be after pickup time.')
-        if attrs['start_datetime'] <= timezone.now():
+        if not self.context.get('manual_booking') and attrs['start_datetime'] <= timezone.now():
             raise serializers.ValidationError('Pickup time must be in the future.')
         return attrs
 
@@ -41,6 +41,17 @@ class BookingCreateSerializer(AvailabilitySerializer):
     pickup_custom_payload = serializers.CharField(max_length=500, allow_blank=True, default='')
     dropoff_custom_payload = serializers.CharField(max_length=500, allow_blank=True, default='')
     notes = serializers.CharField(max_length=5000, allow_blank=True, default='')
+
+
+class ManualBookingSerializer(BookingCreateSerializer):
+    rental_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
+    delivery_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, default=0)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs['rental_amount'] + attrs['delivery_amount'] > 99999999.99:
+            raise serializers.ValidationError('Total amount must not exceed 99,999,999.99.')
+        return attrs
 
 
 class BookingUpdateSerializer(serializers.Serializer):
