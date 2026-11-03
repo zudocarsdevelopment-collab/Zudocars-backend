@@ -33,7 +33,7 @@ class AvailableVehiclesAPIView(APIView):
         blocked = dict(Booking.objects.filter(status__in=['pending', 'confirmed']).values('vehicle_id').annotate(
             expected_return=Max('end_datetime')).values_list('vehicle_id', 'expected_return'))
         rows = []
-        for vehicle in Vehicle.objects.filter(Q(pickup_hub__location__is_active=True) | Q(pickup_hub__location__isnull=True), is_active=True, pickup_hub_id=data['pickup_location_id'], pickup_hub__is_active=True, vehicle_type__iexact=data['vehicle_type']):
+        for vehicle in Vehicle.objects.select_related('pickup_hub__location').filter(Q(pickup_hub__location__is_active=True) | Q(pickup_hub__location__isnull=True), is_active=True, pickup_hub_id=data['pickup_location_id'], pickup_hub__is_active=True, vehicle_type__iexact=data['vehicle_type']):
             pricing = quote(vehicle, start, end)
             available = vehicle.pk not in blocked and pricing is not None
             if not available and not data['include_unavailable']:

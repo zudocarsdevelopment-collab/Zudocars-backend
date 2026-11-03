@@ -24,6 +24,7 @@ class CustomerAdmin(admin.ModelAdmin):
 class ManualBookingForm(forms.ModelForm):
     class Meta:
         model = Booking
+        labels = {'delivery_amount': 'Location charge'}
         fields = ['vehicle', 'customer_name', 'customer_phone', 'customer_email',
                   'start_datetime', 'end_datetime', 'pickup_location_id',
                   'dropoff_location_id', 'rental_amount', 'delivery_amount', 'notes']

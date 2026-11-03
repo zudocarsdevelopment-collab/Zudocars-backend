@@ -47,10 +47,18 @@ class ManualBookingSerializer(BookingCreateSerializer):
     time_from = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
     time_to = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
     rental_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
-    delivery_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, default=0)
+    delivery_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, required=False)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        if 'delivery_amount' not in attrs:
+            from fleet.models import Vehicle
+            vehicle = Vehicle.objects.select_related('pickup_hub__location').filter(pk=attrs['cart_vehicle']).first()
+            if vehicle is None:
+                raise serializers.ValidationError({'cart_vehicle': 'Select a valid vehicle.'})
+            from decimal import Decimal
+            from django.conf import settings
+            attrs['delivery_amount'] = vehicle.pickup_hub.effective_booking_amount if vehicle.pickup_hub_id else Decimal(str(getattr(settings, 'BOOKING_DELIVERY_AMOUNT', '1200.00')))
         if attrs['rental_amount'] + attrs['delivery_amount'] > 99999999.99:
             raise serializers.ValidationError('Total amount must not exceed 99,999,999.99.')
         return attrs

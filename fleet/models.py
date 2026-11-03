@@ -42,9 +42,9 @@ class PickupHub(models.Model):
     @property
     def effective_booking_amount(self):
         if self.booking_amount is not None:
-            return self.booking_amount
+            return Decimal(self.booking_amount)
         if self.location_id and self.location.booking_amount is not None:
-            return self.location.booking_amount
+            return Decimal(self.location.booking_amount)
         from django.conf import settings
         return Decimal(str(getattr(settings, 'BOOKING_DELIVERY_AMOUNT', '1200.00')))
 
