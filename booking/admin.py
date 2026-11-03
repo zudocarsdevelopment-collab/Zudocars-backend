@@ -3,9 +3,22 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.contrib import admin
 from rest_framework.exceptions import ValidationError
-from .models import Booking
+from .models import Booking, Customer
 from .serializer import ManualBookingSerializer
 from .booking import create_manual_booking
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ['name', 'phone', 'email']
+    search_fields = ['name', 'phone', 'email']
+    readonly_fields = ['name', 'phone', 'email', 'created_at', 'updated_at']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class ManualBookingForm(forms.ModelForm):

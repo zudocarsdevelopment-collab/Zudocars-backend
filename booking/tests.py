@@ -370,3 +370,81 @@ class BookingEditTests(LocalBookingTests):
         self.assertEqual(self.vehicle.odometer, 1200)
         response = self.client.put(f'/api/bookings/{reference}/', self.edit_payload(), format='json')
         self.assertEqual(response.status_code, 400)
+
+class CustomerRecordTests(LocalBookingTests):
+    def test_booking_saves_customer_and_search_by_name_or_mobile(self):
+        from .models import Customer
+        self.payload.update(customer_name='Varun Kumar', customer_email='varun@example.com')
+        reference = self.create_booking()
+        customer = Customer.objects.get()
+        self.assertEqual(customer.name, 'Varun Kumar')
+        self.assertEqual(customer.email, 'varun@example.com')
+        self.assertEqual(Booking.objects.get(reference=reference).customer_id, customer.pk)
+        self.sign_in()
+        for query in ['va', 'VA', '9000']:
+            response = self.client.get('/api/customers/', {'q': query})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data[0]['name'], 'Varun Kumar')
+            self.assertEqual(response.data[0]['phone'], '9000000000')
+            self.assertEqual(response.data[0]['email'], 'varun@example.com')
+
+    def test_customer_search_requires_login_and_two_characters(self):
+        self.create_booking()
+        self.assertEqual(self.client.get('/api/customers/', {'q': 'te'}).status_code, 401)
+        self.sign_in()
+        self.assertEqual(self.client.get('/api/customers/', {'q': 't'}).data, [])
+        self.assertEqual(self.client.get('/api/customers/', {'q': 'missing'}).data, [])
+
+    def test_same_mobile_reuses_customer_and_same_name_different_mobile_is_separate(self):
+        from .models import Customer
+        reference = self.create_booking()
+        booking = Booking.objects.get(reference=reference)
+        booking.customer_phone = '+919000000000'
+        booking.customer_email = 'customer@example.com'
+        booking.save()
+        self.assertEqual(Customer.objects.count(), 1)
+        booking.customer_phone = '9111111111'
+        booking.save()
+        self.assertEqual(Customer.objects.count(), 2)
+        self.assertEqual(booking.customer.phone, '9111111111')
+
+    def test_status_update_does_not_overwrite_newer_customer_details(self):
+        from .models import Customer
+        reference = self.create_booking()
+        customer = Customer.objects.get()
+        customer.name = 'Updated customer name'
+        customer.save()
+        self.sign_in()
+        response = self.client.patch(f'/api/bookings/{reference}/', {'status': 'confirmed'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        customer.refresh_from_db()
+        self.assertEqual(customer.name, 'Updated customer name')
+
+    def test_manual_save_and_edit_sync_customer(self):
+        from .models import Customer
+        self.sign_in()
+        payload = {**self.payload, 'rental_amount': '500', 'delivery_amount': '0', 'customer_name': 'Varun'}
+        response = self.client.post('/api/bookings/list/', payload, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        reference = response.data['reference']
+        response = self.client.put(f'/api/bookings/{reference}/', {**payload, 'customer_name': 'Varun Kumar', 'customer_email': 'varun@example.com'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(Customer.objects.count(), 1)
+        self.assertEqual(Customer.objects.get().name, 'Varun Kumar')
+        self.assertEqual(Customer.objects.get().email, 'varun@example.com')
+
+    def test_backfill_imports_existing_bookings_and_preserves_history(self):
+        from importlib import import_module
+        from django.apps import apps
+        from django.db import connection
+        from .models import Customer
+        reference = self.create_booking()
+        booking = Booking.objects.get(reference=reference)
+        Customer.objects.all().delete()
+        self.assertIsNone(Booking.objects.get(pk=booking.pk).customer_id)
+        from types import SimpleNamespace
+        import_module('booking.migrations.0003_customer_records').import_customers(apps, SimpleNamespace(connection=connection))
+        booking.refresh_from_db()
+        self.assertEqual(Customer.objects.count(), 1)
+        self.assertEqual(booking.customer.name, 'Test Customer')
+        self.assertEqual(booking.customer_name, 'Test Customer')

@@ -107,6 +107,22 @@ class BookingListAPIView(APIView):
         return Response(BookingSerializer(booking).data, status=201)
 
 
+class CustomerSearchAPIView(BookingListAPIView):
+    http_method_names = ['get', 'head', 'options']
+
+    def get(self, request):
+        from .models import Customer, normalize_customer_phone
+        query = request.query_params.get('q', '').strip()[:150]
+        if len(query) < 2:
+            return Response([])
+        filters = Q(name__istartswith=query)
+        digits = normalize_customer_phone(query)
+        if len(digits) >= 2:
+            filters |= Q(phone__startswith=digits)
+        rows = Customer.objects.filter(filters).values('id', 'name', 'phone', 'email')[:10]
+        return Response(list(rows))
+
+
 class BookingDetailAPIView(BookingListAPIView):
     def put(self, request, reference):
         from .serializer import ManualBookingSerializer
