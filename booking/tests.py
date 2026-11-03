@@ -340,3 +340,33 @@ class BookingEditTests(LocalBookingTests):
         self.assertEqual(booking.total_amount, Decimal('900'))
         self.assertEqual(booking.reference, reference)
         self.assertEqual(booking.status, 'pending')
+
+    def test_edit_completed_preserves_return_records_and_vehicle_mileage(self):
+        reference = self.create_booking()
+        booking = Booking.objects.get(reference=reference)
+        booking.start_datetime -= timedelta(days=10)
+        booking.end_datetime -= timedelta(days=10)
+        booking.status = 'completed'
+        booking.return_odometer = 900
+        booking.returned_at = booking.end_datetime
+        booking.assigned_email = 'driver@example.com'
+        booking.save()
+        self.vehicle.odometer = 1200
+        self.vehicle.save()
+        self.sign_in()
+        from zoneinfo import ZoneInfo
+        start = booking.start_datetime.astimezone(ZoneInfo('Asia/Kolkata'))
+        end = booking.end_datetime.astimezone(ZoneInfo('Asia/Kolkata'))
+        payload = {**self.edit_payload(), 'date_from': start.strftime('%Y-%m-%d'), 'time_from': start.strftime('%H:%M'),
+                   'date_to': end.strftime('%Y-%m-%d'), 'time_to': end.strftime('%H:%M')}
+        response = self.client.put(f'/api/bookings/{reference}/', payload, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['return_odometer'], 900)
+        self.assertEqual(response.data['assigned_email'], 'driver@example.com')
+        self.assertEqual(response.data['status'], 'completed')
+        booking.refresh_from_db()
+        self.assertEqual(booking.returned_at, end)
+        self.vehicle.refresh_from_db()
+        self.assertEqual(self.vehicle.odometer, 1200)
+        response = self.client.put(f'/api/bookings/{reference}/', self.edit_payload(), format='json')
+        self.assertEqual(response.status_code, 400)

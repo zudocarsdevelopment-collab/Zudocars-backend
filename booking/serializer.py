@@ -44,6 +44,8 @@ class BookingCreateSerializer(AvailabilitySerializer):
 
 
 class ManualBookingSerializer(BookingCreateSerializer):
+    time_from = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
+    time_to = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
     rental_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
     delivery_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, default=0)
 
