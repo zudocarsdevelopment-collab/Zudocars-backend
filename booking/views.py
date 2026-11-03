@@ -108,6 +108,15 @@ class BookingListAPIView(APIView):
 
 
 class BookingDetailAPIView(BookingListAPIView):
+    def put(self, request, reference):
+        from .serializer import ManualBookingSerializer
+        from .booking import create_manual_booking
+        booking = get_object_or_404(Booking, reference=reference)
+        serializer = ManualBookingSerializer(data=request.data, context={'manual_booking': True})
+        serializer.is_valid(raise_exception=True)
+        booking = create_manual_booking(serializer.validated_data, instance=booking)
+        return Response(BookingSerializer(booking).data)
+
     def get(self, request, reference):
         return Response(BookingSerializer(get_object_or_404(Booking, reference=reference)).data)
 

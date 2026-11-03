@@ -42,26 +42,55 @@ def booking_result(booking):
 
 
 @transaction.atomic
-def create_manual_booking(data, *, validate_only=False):
+def create_manual_booking(data, *, validate_only=False, instance=None):
     from django.utils import timezone
     from rest_framework.exceptions import ValidationError
     from fleet.models import Vehicle, PickupHub
 
-    vehicle = Vehicle.objects.select_for_update().filter(pk=data['cart_vehicle']).first()
+    vehicle_ids = [data['cart_vehicle']]
+    if instance is not None:
+        vehicle_ids.append(Booking.objects.get(pk=instance.pk).vehicle_id)
+    vehicles = {row.pk: row for row in Vehicle.objects.select_for_update().filter(pk__in=vehicle_ids).order_by('pk')}
+    vehicle = vehicles.get(data['cart_vehicle'])
+    if instance is not None:
+        instance = Booking.objects.select_for_update().get(pk=instance.pk)
     if vehicle is None:
         raise ValidationError('Select a valid vehicle.')
     start, end = data['start_datetime'], data['end_datetime']
     historical = end <= timezone.now()
+    if instance and instance.status == 'completed' and not historical:
+        raise ValidationError('A completed booking must have a return date in the past.')
+    if instance and instance.return_odometer is not None and instance.vehicle_id != vehicle.pk:
+        raise ValidationError('The vehicle cannot be changed after return mileage has been recorded.')
     if vehicle.pickup_hub_id != data['pickup_location_id']:
         raise ValidationError('Select the pickup hub belonging to this vehicle.')
     hubs = {hub.pk: hub for hub in PickupHub.objects.filter(pk__in=[data['pickup_location_id'], data['dropoff_location_id']])}
     if data['dropoff_location_id'] not in hubs:
         raise ValidationError('Select a valid return hub.')
     conflicts = Booking.objects.filter(vehicle=vehicle).exclude(status='cancelled').filter(start_datetime__lt=end, end_datetime__gt=start)
-    if conflicts.exists() or (not historical and overlapping_bookings(vehicle, start, end).exists()):
+    active = overlapping_bookings(vehicle, start, end)
+    if instance:
+        conflicts = conflicts.exclude(pk=instance.pk)
+        active = active.exclude(pk=instance.pk)
+    schedule_changed = instance is None or (instance.vehicle_id, instance.start_datetime, instance.end_datetime) != (vehicle.pk, start, end)
+    if schedule_changed and (not instance or instance.status != 'cancelled') and (conflicts.exists() or (not historical and active.exists())):
         raise ValidationError('This vehicle already has a booking for this period or is awaiting return.')
     if validate_only:
         return None
+    if instance:
+        for key in ('customer_name', 'customer_phone', 'customer_email', 'pickup_location_id', 'dropoff_location_id', 'notes', 'rental_amount', 'delivery_amount'):
+            setattr(instance, key, data[key])
+        if instance.vehicle_id != vehicle.pk:
+            instance.pickup_odometer = vehicle.odometer if instance.status == 'confirmed' else None
+        instance.vehicle = vehicle
+        instance.vehicle_plate_number = vehicle.plate_number
+        instance.cart_vehicle = {'id': vehicle.pk, 'name': vehicle.category, 'asset_identifier': vehicle.plate_number}
+        instance.start_datetime, instance.end_datetime = start, end
+        instance.pickup_custom_payload = hubs[data['pickup_location_id']].name
+        instance.dropoff_custom_payload = hubs[data['dropoff_location_id']].name
+        instance.total_amount = data['rental_amount'] + data['delivery_amount']
+        instance.save()
+        return instance
     return Booking.objects.create(
         vehicle=vehicle, vehicle_plate_number=vehicle.plate_number,
         cart_vehicle={'id': vehicle.pk, 'name': vehicle.category, 'asset_identifier': vehicle.plate_number},

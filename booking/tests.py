@@ -275,3 +275,68 @@ class ManualBookingTests(LocalBookingTests):
             'rental_amount': '1500', 'delivery_amount': '200', '_save': 'Save'})
         self.assertEqual(response.status_code, 302, getattr(response, 'context_data', None))
         self.assertEqual(Booking.objects.get().status, 'completed')
+
+class BookingEditTests(LocalBookingTests):
+    def edit_payload(self):
+        return {**self.payload, 'customer_name': 'Corrected customer', 'customer_phone': '9111111111',
+                'rental_amount': '1800.00', 'delivery_amount': '100.00', 'notes': 'Corrected notes'}
+
+    def test_edit_requires_authentication(self):
+        reference = self.create_booking()
+        response = self.client.put(f'/api/bookings/{reference}/', self.edit_payload(), format='json')
+        self.assertEqual(response.status_code, 401)
+
+    def test_edit_existing_without_self_conflict_preserves_reference_and_status(self):
+        reference = self.create_booking()
+        self.sign_in()
+        response = self.client.put(f'/api/bookings/{reference}/', self.edit_payload(), format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['reference'], reference)
+        self.assertEqual(response.data['customer_name'], 'Corrected customer')
+        self.assertEqual(response.data['customer_phone'], '9111111111')
+        self.assertEqual(response.data['notes'], 'Corrected notes')
+        self.assertEqual(response.data['total_amount'], '1900.00')
+        self.assertEqual(response.data['status'], 'pending')
+        self.assertEqual(Booking.objects.count(), 1)
+
+    def test_edit_rejects_conflict_and_rolls_back(self):
+        reference = self.create_booking()
+        other = Vehicle.objects.create(pickup_hub=self.hub, external_id='edit-test', plate_number='KL02TEST', category='Other car', vehicle_type='Car', hourly_rate=100)
+        Booking.objects.create(vehicle=other, vehicle_plate_number=other.plate_number, customer_name='Other customer', customer_phone='9000000000',
+            start_datetime=Booking.objects.get(reference=reference).start_datetime, end_datetime=Booking.objects.get(reference=reference).end_datetime,
+            pickup_location_id=self.hub.pk, dropoff_location_id=self.hub.pk, rental_amount=100, delivery_amount=0, total_amount=100)
+        self.sign_in()
+        response = self.client.put(f'/api/bookings/{reference}/', {**self.edit_payload(), 'cart_vehicle': other.pk}, format='json')
+        self.assertEqual(response.status_code, 400)
+        booking = Booking.objects.get(reference=reference)
+        self.assertEqual(booking.vehicle_id, self.vehicle.pk)
+        self.assertEqual(booking.customer_name, 'Test Customer')
+
+    def test_edit_rejects_invalid_dates_and_negative_charges(self):
+        reference = self.create_booking()
+        self.sign_in()
+        for changes in [{'date_to': self.payload['date_from'], 'time_to': self.payload['time_from']}, {'rental_amount': '-1'}]:
+            response = self.client.put(f'/api/bookings/{reference}/', {**self.edit_payload(), **changes}, format='json')
+            self.assertEqual(response.status_code, 400)
+
+    def test_admin_edit(self):
+        from django.urls import reverse
+        reference = self.create_booking()
+        booking = Booking.objects.get(reference=reference)
+        self.user.is_staff = self.user.is_superuser = True
+        self.user.save()
+        self.client.force_login(self.user)
+        url = reverse('admin:booking_booking_change', args=[booking.pk])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        start, end = timezone.localtime(booking.start_datetime), timezone.localtime(booking.end_datetime)
+        response = self.client.post(url, {'vehicle': self.vehicle.pk, 'customer_name': 'Fixed by admin', 'customer_phone': '9000000000',
+            'start_datetime_0': start.strftime('%Y-%m-%d'), 'start_datetime_1': start.strftime('%H:%M:%S'),
+            'end_datetime_0': end.strftime('%Y-%m-%d'), 'end_datetime_1': end.strftime('%H:%M:%S'),
+            'pickup_location_id': self.hub.pk, 'dropoff_location_id': self.hub.pk,
+            'rental_amount': '900', 'delivery_amount': '0', '_save': 'Save'})
+        self.assertEqual(response.status_code, 302)
+        booking.refresh_from_db()
+        self.assertEqual(booking.customer_name, 'Fixed by admin')
+        self.assertEqual(booking.total_amount, Decimal('900'))
+        self.assertEqual(booking.reference, reference)
+        self.assertEqual(booking.status, 'pending')
