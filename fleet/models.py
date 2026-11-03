@@ -15,12 +15,14 @@ class Location(models.Model):
 
     class Meta:
         ordering = ['name']
+        verbose_name = 'hub'
+        verbose_name_plural = 'hubs'
 
     def __str__(self):
         return self.name
 
 class PickupHub(models.Model):
-    location = models.ForeignKey(Location, null=True, blank=True, on_delete=models.PROTECT, related_name='pickup_hubs')
+    location = models.ForeignKey(Location, verbose_name='hub', null=True, blank=True, on_delete=models.PROTECT, related_name='pickup_hubs')
     name = models.CharField(max_length=100, unique=True)
     address = models.TextField(blank=True)
     city = models.CharField(max_length=100, blank=True)
@@ -29,12 +31,14 @@ class PickupHub(models.Model):
 
     class Meta:
         ordering = ['name']
+        verbose_name = 'location'
+        verbose_name_plural = 'locations'
 
     def __str__(self):
         return self.name
 
 class Vehicle(models.Model):
-    pickup_hub = models.ForeignKey(PickupHub, null=True, blank=True, on_delete=models.PROTECT, related_name='vehicles')
+    pickup_hub = models.ForeignKey(PickupHub, verbose_name='pickup location', null=True, blank=True, on_delete=models.PROTECT, related_name='vehicles')
     external_id = models.CharField(
         max_length=50, unique=True, default=vehicle_external_id,
         help_text="theRentOS asset ID, used to avoid duplicates on re-sync"

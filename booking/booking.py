@@ -63,10 +63,10 @@ def create_manual_booking(data, *, validate_only=False, instance=None):
     if instance and instance.return_odometer is not None and instance.vehicle_id != vehicle.pk:
         raise ValidationError('The vehicle cannot be changed after return mileage has been recorded.')
     if vehicle.pickup_hub_id != data['pickup_location_id']:
-        raise ValidationError('Select the pickup hub belonging to this vehicle.')
+        raise ValidationError('Select the pickup location belonging to this vehicle.')
     hubs = {hub.pk: hub for hub in PickupHub.objects.filter(pk__in=[data['pickup_location_id'], data['dropoff_location_id']])}
     if data['dropoff_location_id'] not in hubs:
-        raise ValidationError('Select a valid return hub.')
+        raise ValidationError('Select a valid return location.')
     conflicts = Booking.objects.filter(vehicle=vehicle).exclude(status='cancelled').filter(start_datetime__lt=end, end_datetime__gt=start)
     active = overlapping_bookings(vehicle, start, end)
     if instance:

@@ -36,7 +36,7 @@ class LocationDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         try:
             return super().delete(request, *args, **kwargs)
         except ProtectedError:
-            return Response({'error': 'This location has pickup hubs. Reassign them or deactivate the location.'}, status=409)
+            return Response({'error': 'This hub has locations. Reassign them or deactivate the hub.'}, status=409)
 
 
 class PickupHubListAPIView(generics.ListCreateAPIView):
@@ -63,7 +63,7 @@ class PickupHubDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         try:
             return super().delete(request, *args, **kwargs)
         except ProtectedError:
-            return Response({'error': 'This hub has linked vehicles. Reassign them or deactivate the hub.'}, status=409)
+            return Response({'error': 'This location has linked vehicles. Reassign them or deactivate the location.'}, status=409)
 
 
 class VehicleListCreateAPIView(generics.ListCreateAPIView):

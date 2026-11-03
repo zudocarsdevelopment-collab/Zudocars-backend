@@ -41,7 +41,7 @@ class VehicleSerializer(serializers.ModelSerializer):
 
     def validate_pickup_hub(self, value):
         if value and (not value.is_active or (value.location and not value.location.is_active)):
-            raise serializers.ValidationError('Choose an active pickup hub.')
+            raise serializers.ValidationError('Choose an active pickup location.')
         return value
 
 
@@ -54,7 +54,7 @@ class PickupHubSerializer(serializers.ModelSerializer):
 
     def validate_location(self, value):
         if not value.is_active:
-            raise serializers.ValidationError('Choose an active location.')
+            raise serializers.ValidationError('Choose an active hub.')
         return value
 
 

@@ -64,9 +64,9 @@ class CreateEstimateBookingAPIView(APIView):
         with transaction.atomic():
             vehicle = get_object_or_404(Vehicle.objects.select_for_update(), pk=data['cart_vehicle'], is_active=True)
             if vehicle.pickup_hub_id != data['pickup_location_id']:
-                raise ValidationError('This vehicle belongs to a different pickup hub.')
+                raise ValidationError('This vehicle belongs to a different pickup location.')
             if not PickupHub.objects.filter(Q(location__is_active=True) | Q(location__isnull=True), pk=data['pickup_location_id'], is_active=True).exists():
-                raise ValidationError('The pickup hub is unavailable.')
+                raise ValidationError('The pickup location is unavailable.')
             dropoff = get_object_or_404(PickupHub, pk=data['dropoff_location_id'], is_active=True)
             if dropoff.location and not dropoff.location.is_active:
                 raise ValidationError('The return location is unavailable.')
