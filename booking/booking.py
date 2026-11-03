@@ -10,6 +10,10 @@ def overlapping_bookings(vehicle, start, end):
     return Booking.objects.filter(vehicle=vehicle, status__in=['pending', 'confirmed'])
 
 
+def manual_booking_conflicts(start, end):
+    return Booking.objects.exclude(status='cancelled').filter(start_datetime__lt=end, end_datetime__gt=start)
+
+
 def quote(vehicle, start, end):
     hours = (Decimal(str((end - start).total_seconds())) / Decimal('3600')).to_integral_value(rounding=ROUND_CEILING)
     if vehicle.daily_price is not None:
@@ -68,14 +72,12 @@ def create_manual_booking(data, *, validate_only=False, instance=None):
     hubs = {hub.pk: hub for hub in PickupHub.objects.filter(pk__in=[data['pickup_location_id'], data['dropoff_location_id']])}
     if data['dropoff_location_id'] not in hubs:
         raise ValidationError('Select a valid return location.')
-    conflicts = Booking.objects.filter(vehicle=vehicle).exclude(status='cancelled').filter(start_datetime__lt=end, end_datetime__gt=start)
-    active = overlapping_bookings(vehicle, start, end)
+    conflicts = manual_booking_conflicts(start, end).filter(vehicle=vehicle)
     if instance:
         conflicts = conflicts.exclude(pk=instance.pk)
-        active = active.exclude(pk=instance.pk)
     schedule_changed = instance is None or (instance.vehicle_id, instance.start_datetime, instance.end_datetime) != (vehicle.pk, start, end)
-    if schedule_changed and (not instance or instance.status != 'cancelled') and (conflicts.exists() or (not historical and active.exists())):
-        raise ValidationError('This vehicle already has a booking for this period or is awaiting return.')
+    if schedule_changed and (not instance or instance.status != 'cancelled') and conflicts.exists():
+        raise ValidationError('This vehicle already has a booking for the selected dates. Choose dates after its existing booking ends.')
     if validate_only:
         return None
     if instance:

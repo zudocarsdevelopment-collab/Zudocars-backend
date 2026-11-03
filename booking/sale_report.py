@@ -117,7 +117,9 @@ class SaleReportAPIView(BookingListAPIView):
         start = datetime.combine(data['date_from'], time.min, INDIA)
         end = datetime.combine(data['date_to'] + timedelta(days=1), time.min, INDIA)
         bookings = Booking.objects.filter(status='completed', returned_at__gte=start, returned_at__lt=end).order_by('returned_at', 'reference')
-        if not request.user.is_superuser and getattr(request.user, 'role', 'staff') != 'admin':
+        from authenticator.models import StaffMember
+        staff = StaffMember.objects.filter(email__iexact=request.user.email).first()
+        if not request.user.is_superuser and staff and staff.role == 'staff':
             bookings = bookings.filter(assigned_email__iexact=request.user.email)
         search = data['search'].lower()
         bookings = [b for b in bookings if not search or search in f"{b.reference} {b.customer_name} {b.customer_phone} {' · '.join(filter(None, [b.cart_vehicle.get('name', ''), b.vehicle_plate_number]))} Completed {b.assigned_email}".lower()]

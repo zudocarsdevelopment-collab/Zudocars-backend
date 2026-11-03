@@ -222,6 +222,42 @@ class LocalBookingTests(TestCase):
         self.assertEqual(response.data['booking']['pickup_custom_payload'], self.hub.name)
 
 class ManualBookingTests(LocalBookingTests):
+    def test_manual_availability_and_save_use_selected_dates(self):
+        reference = self.create_booking()
+        self.sign_in()
+        query = {key: self.payload[key] for key in ('date_from', 'time_from', 'date_to', 'time_to')}
+        response = self.client.get('/api/bookings/manual-availability/', query)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data['vehicles'][0]['available'])
+        self.assertIsNotNone(response.data['vehicles'][0]['expected_return_at'])
+        manual = {**self.payload, 'rental_amount': '500', 'delivery_amount': '0'}
+        self.assertEqual(self.client.post('/api/bookings/list/', manual, format='json').status_code, 400)
+        existing = Booking.objects.get(reference=reference)
+        from zoneinfo import ZoneInfo
+        start = existing.end_datetime.astimezone(ZoneInfo('Asia/Kolkata'))
+        end = start + timedelta(days=1)
+        later = {**manual, 'date_from': start.strftime('%Y-%m-%d'), 'time_from': start.strftime('%H:%M'),
+                 'date_to': end.strftime('%Y-%m-%d'), 'time_to': end.strftime('%H:%M')}
+        response = self.client.get('/api/bookings/manual-availability/', later)
+        self.assertTrue(response.data['vehicles'][0]['available'])
+        response = self.client.post('/api/bookings/list/', later, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+
+    def test_manual_availability_excludes_current_edit_and_cancelled(self):
+        reference = self.create_booking()
+        self.sign_in()
+        response = self.client.get('/api/bookings/manual-availability/', {**self.payload, 'exclude_reference': reference})
+        self.assertTrue(response.data['vehicles'][0]['available'])
+        Booking.objects.filter(reference=reference).update(status='cancelled')
+        response = self.client.get('/api/bookings/manual-availability/', self.payload)
+        self.assertTrue(response.data['vehicles'][0]['available'])
+
+    def test_manual_availability_requires_auth_and_valid_dates(self):
+        self.assertEqual(self.client.get('/api/bookings/manual-availability/', self.payload).status_code, 401)
+        self.sign_in()
+        self.assertEqual(self.client.get('/api/bookings/manual-availability/', {'date_from': 'bad'}).status_code, 400)
+        self.assertEqual(self.client.get('/api/bookings/manual-availability/', {**self.payload, 'date_to': self.payload['date_from'], 'time_to': self.payload['time_from']}).status_code, 400)
+
     def test_percentage_discount_saved_and_edited(self):
         self.sign_in()
         payload = {**self.old_payload(), 'discount_type': 'percentage', 'discount_value': '10'}

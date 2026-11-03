@@ -3,9 +3,11 @@ from .views import AvailableVehiclesAPIView, CreateEstimateBookingAPIView, Booki
 from .zudo_pdf_view import ZudoEstimatePDFAPIView, ZudoEstimatePDFDownloadAPIView
 from django.conf.urls.static import static
 from .sale_report import SaleReportAPIView
+from .views import ManualBookingAvailabilityAPIView
 
 
 urlpatterns = [
+    path('bookings/manual-availability/', ManualBookingAvailabilityAPIView.as_view(), name='manual-booking-availability'),
     path('reports/sales/', SaleReportAPIView.as_view(), name='sale-report'),
     path('customers/', CustomerSearchAPIView.as_view(), name='customer-search'),
     path('bookings/', CreateEstimateBookingAPIView.as_view(), name='create-booking'),

@@ -107,6 +107,25 @@ class BookingListAPIView(APIView):
         return Response(BookingSerializer(booking).data, status=201)
 
 
+class ManualBookingAvailabilityAPIView(BookingListAPIView):
+    http_method_names = ['get', 'head', 'options']
+
+    def get(self, request):
+        from .serializer import ManualAvailabilitySerializer
+        from .booking import manual_booking_conflicts
+        serializer = ManualAvailabilitySerializer(data=request.query_params, context={'manual_booking': True})
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        conflicts = manual_booking_conflicts(data['start_datetime'], data['end_datetime'])
+        if data['exclude_reference']:
+            conflicts = conflicts.exclude(reference=data['exclude_reference'])
+        blocked = dict(conflicts.values('vehicle_id').annotate(expected_return=Max('end_datetime')).values_list('vehicle_id', 'expected_return'))
+        return Response({'vehicles': [
+            {'id': vehicle.pk, 'available': vehicle.pk not in blocked, 'expected_return_at': blocked.get(vehicle.pk)}
+            for vehicle in Vehicle.objects.all()
+        ]})
+
+
 class CustomerSearchAPIView(BookingListAPIView):
     http_method_names = ['get', 'head', 'options']
 

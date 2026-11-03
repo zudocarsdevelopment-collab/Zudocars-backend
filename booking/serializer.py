@@ -79,3 +79,11 @@ class BookingUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Booking.STATUS, required=False)
     assigned_email = serializers.EmailField(allow_blank=True, required=False)
     notes = serializers.CharField(max_length=5000, allow_blank=True, required=False)
+
+
+class ManualAvailabilitySerializer(AvailabilitySerializer):
+    time_from = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
+    time_to = serializers.TimeField(input_formats=['%H:%M', '%H:%M:%S'])
+    pickup_location_id = serializers.IntegerField(required=False)
+    dropoff_location_id = serializers.IntegerField(required=False)
+    exclude_reference = serializers.CharField(required=False, allow_blank=True, default='', max_length=20)
